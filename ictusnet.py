@@ -55,7 +55,7 @@ OVERLAPPINGS = {
 @click.option('--audit-bunch', default=AUDIT_BUNCH,
               help='Number of documents for the Audit runs.')
 @click.option('--backup', is_flag=True, help='Perform a backup of the docs-dir.')
-@click.option('--dummy', is_flag=True, help='Create some dummy files.')
+@click.option('--dummy', is_flag=True, help='Create dummy files to test this script.')
 def distribute_ictusnet_documents(docs_dir: str, annotators: tuple,
                                   training_bunch: int, regular_bunch: int, audit_bunch: int,
                                   backup: bool,  dummy: bool):
