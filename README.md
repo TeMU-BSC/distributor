@@ -1,10 +1,16 @@
-# ICTUSnet Document Assignment Script
+# ICTUSnet Annotation Documents Assignment Script
+
+Script to automatic distribute the documents to a given list of annotators.
 
 Requires:
 - python3
+- pip
 
 Run:
 ```
+$ cd ictusnet
+$ pip install -U pipenv
+$ pipenv shell
 $ python ictusnet.py
 ```
 

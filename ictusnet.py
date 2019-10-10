@@ -1,34 +1,35 @@
 '''
-Script to distribute massively all the documents to a given list of annotators.
+Script to automatic distribute the documents to a given list of annotators.
 Project: ICTUSnet
-Version: 3
-Date: 2019-10-09
-Author:
+Version: 0.4
+Date: 2019-10-10
+Author of this script:
     Alejandro Asensio <alejandro.asensio@bsc.es>
-Credits for the overlappings algorithm ('documents_distribution.ods'):
+Credits for the initial 10-overlappings algorithm ('documents_distribution.ods'):
     Ankush Rana <ankush.rana@bsc.es>
 
-TODO hacer variable el numero de overlappings
-TODO parameter prompt: How many trainings? How many regular? How many audits?
-TODO we have to choose the documents in this proportion: 90% from AQuAS, 10% from SonEspases
+TODO Pick the documents in this proportion: 90% from AQuAS, 10% from SonEspases.
+TODO Make this script able to be usable for each run (create options --complete-run and --individual-run).
 '''
 
 import os
+import re
 import random
 import shutil
-from typing import Dict, List
+from collections import Counter
+from typing import List
 import click
 
 # -----------------------------------------------------------------------------
 # Modify these CONSTANTS if needed
-TOTAL_DUMMY_DOCS = 1500  # 1369 optimal
+
 EXTENSION = '.txt'
-DOCS_DIR = 'dummy'
+DOCS_DIR = 'dummy_docs'
 BACKUP_SLUG = '_backup'
 ANNOTATORS_DIR = 'annotators'
 ANNOTATORS_NAMES = ('A', 'B', 'C', 'D')
 RUNS_DIRS = {
-    'training': ['01'],
+    'training': ['01', '08'],
     'regular': [],
     'audit': ['02', '03', '04', '05', '06', '07']
 }
@@ -36,16 +37,25 @@ TRAINING_BUNCH = 25
 REGULAR_BUNCH = 50
 AUDIT_BUNCH = 50
 
+# The minimum amount of docs should be:
+# (trainings * TRAINING_BUNCH) + (regulars * REGULAR_BUNCH) + (audits * AUDIT_BUNCH)
+TOTAL_DUMMY_DOCS = 1400
+
 # Documents overlapping map. This is a list of lists, which each list is made
 # of tuples that follow the structure: (document_index, destination_annotator_index).
-
 # Note: With 8 overlappings, each annotator has 4 documents that are equally compared with other annotators.
-OVERLAPPINGS = [
+AUDIT_OVERLAPPINGS = [
     [(0, 1), (1, 1), (2, 3)],
     [(0, 2), (1, 2)],
     [(0, 3), (1, 3)],
-    [(0, 1)]
+    [(0, 0)]
 ]
+
+# Percentage of document pickings by organization
+PICKING = {
+    'AQuAS': 0.9,
+    'SonEspases': 0.1
+}
 # -----------------------------------------------------------------------------
 
 
@@ -55,22 +65,29 @@ OVERLAPPINGS = [
 @click.option('--annotators', nargs=4, default=ANNOTATORS_NAMES,
               help='Names of the annotators.')
 @click.option('--backup', is_flag=True, help='Perform a backup of the docs-dir.')
-@click.option('--dummy', is_flag=True, help='Create dummy files to test this script.')
-# @click.option('-t', '--training', default=RUNS_DIRS.get('training'), prompt='Training directories',
-#               help='Name for the documents of training runs.')
-# @click.option('-r', '--regular', default=RUNS_DIRS.get('regular'), prompt='Regular directories',
-#               help='Name for the documents of regular runs.')
-# @click.option('-a', '--audit', default=RUNS_DIRS.get('audit'), prompt='Audit directories',
-#               help='Name for the documents of audit runs.')
-def distribute_ictusnet_documents(docs_dir: str, annotators: tuple, backup: bool,  dummy: bool):
-    '''Distribute massively all the documents in the given docs_dir to some given annotators.
+@click.option('--dummy', is_flag=True, default= True, help='Create dummy files to test this script.')
+# @click.option('--complete-run', is_flag=True,
+#               help='Assign the documents massively for ALL runs directories defined in `RUNS_DIRS` constant.')
+# @click.option('--individual-run', ...,
+#               help='')
+# @click.option('--run-dir', prompt='New directory name for the run (e.g. `01`)',
+#               help='Name for the new directory where the documents are going to be copied.')
+def main(docs_dir: str, annotators: tuple, backup: bool,  dummy: bool):
+    '''
+    Distribute plain text documents into different directories regarding the following criteria.
+    
+    This script has two modes:
+        [1] Individual mode (default): Distribute the documents ONLY for a concrete run,
+            specificating the type of run: `training`, `regular` or `audit`.
+        [2] Complete mode (`--complete-run` option): Distribute massively all the documents in the
+            given docs_dir to some given annotators.
 
-    This distribution is adapted to the defined runs of the project:
-        - Training: The exactly same documents for each annotator.
-        - Regular: A certain bunch of documents for each annotator, being the documents different
-                   among the annotators.
-        - Audit: A certain bunch of documents for each annotator, overlapping some of these
-                 documents, so it will be repeated documents among the annotators.
+    The distribution of the documents depends on the defined run types defined for the project:
+        [1] Training run: The exactly same documents for each annotator.
+        [2] Regular run: A certain bunch of documents for each annotator, being the documents
+            different among the annotators.
+        [3] Audit run: A certain bunch of documents for each annotator, overlapping some of these
+            documents, so it will be repeated documents among the annotators.
     '''
 
     backup_dir = f'{docs_dir}{BACKUP_SLUG}'
@@ -85,7 +102,7 @@ def distribute_ictusnet_documents(docs_dir: str, annotators: tuple, backup: bool
         shutil.copytree(docs_dir, backup_dir)
 
     def _create_dummy_docs():
-        '''Create some empty files to test this script.'''
+        '''Create some empty dummy files with numeric filenames to test this script.'''
         if not os.path.exists(docs_dir):
             os.makedirs(docs_dir)
         for dummy_doc in range(1, TOTAL_DUMMY_DOCS + 1):
@@ -107,6 +124,15 @@ def distribute_ictusnet_documents(docs_dir: str, annotators: tuple, backup: bool
                 if not os.path.exists(dirname):
                     os.makedirs(dirname)
 
+    def count_target_annotator(audit_overlappings: List[List[tuple]], ann_index: int) -> int:
+        '''Return the number of times that an annotator (ann_index) is present in the
+        audit_overlappings map as a target for copying a document into the directory.'''
+        target_annotators = list()
+        for annotator_overlappings_list in audit_overlappings:
+            for (src, tgt) in annotator_overlappings_list:
+                target_annotators.append(tgt)
+        return Counter(target_annotators)[ann_index]
+
     def training_run(training_dir: str):
         '''Assign exactly the same documents to each annotator training directory.'''
         training_docs = random.sample(docs_spool, k=TRAINING_BUNCH)
@@ -114,7 +140,7 @@ def distribute_ictusnet_documents(docs_dir: str, annotators: tuple, backup: bool
         for doc in training_docs:
             src = f'{docs_dir}/{doc}.txt'
             for annotator in annotators:
-                dst = f'{ANNOTATORS_DIR}/{annotator}/{training_dir}'
+                dst = f'{ANNOTATORS_DIR}/{annotator}/{training_dir}/'
                 assignments.append((src, dst))
 
     def regular_run(regular_dir: str):
@@ -122,7 +148,7 @@ def distribute_ictusnet_documents(docs_dir: str, annotators: tuple, backup: bool
         for annotator in annotators:
             regular_docs = random.sample(docs_spool, k=REGULAR_BUNCH)
             [docs_spool.remove(doc) for doc in regular_docs]
-            dst = f'{ANNOTATORS_DIR}/{annotator}/{regular_dir}'
+            dst = f'{ANNOTATORS_DIR}/{annotator}/{regular_dir}/'
             for doc in regular_docs:
                 src = f'{docs_dir}/{doc}.txt'
                 assignments.append((src, dst))
@@ -132,38 +158,40 @@ def distribute_ictusnet_documents(docs_dir: str, annotators: tuple, backup: bool
         for (ann_index, annotator) in enumerate(annotators):
             audit_docs = random.sample(docs_spool, k=AUDIT_BUNCH)
             [docs_spool.remove(doc) for doc in audit_docs]
-            for (i, doc) in enumerate(audit_docs):
-                src = f'{docs_dir}/{doc}.txt'
-                dst = f'{ANNOTATORS_DIR}/{annotator}/{run_dir}'
+            dst = f'{ANNOTATORS_DIR}/{annotator}/{run_dir}/'
 
-                # Step 1: Assign the initial bunch of docs for each annotator
+            # Step 1: Remove as many docs as many times ann_index appears in the AUDIT_OVERLAPPINGS,
+            # in order to make space for the further overlappings, maintaining regular the bunch amount of docs per directory.
+            number_of_docs_to_remove = count_target_annotator(AUDIT_OVERLAPPINGS, ann_index)
+            [audit_docs.pop() for i in range(number_of_docs_to_remove)]
+            
+            # Step 2: Assign the bunch of docs for each annotator
+            for doc in audit_docs:
+                src = f'{docs_dir}/{doc}.txt'
                 assignments.append((src, dst))
 
-            # # Step 2: Remove the defined amount of random docs to make space for the overlappings
-            # docs_to_delete = random.sample(
-            #     get_filenames(dst), k=OVERLAPPINGS[ann_index][1])
-            # [os.remove(f'{dst}/{doc}.txt') for doc in docs_to_delete]
-
-            # # Step 3.1: Select the defined amount of overlapping docs in the defined algorithm based on their index
-            # docs_to_overlap = list()
-            # [docs_to_overlap.append(get_filenames(dst)[i]) for i in OVERLAPPINGS[ann_index][0]]
-
-            # # Step 3.2: Copy the selected overlapping docs to the defined target annotator
-            # for (i, doc) in enumerate(docs_to_overlap):
-            #     copy_src = f'{dst}/{doc}.txt'
-            #     copy_dst = f'{ANNOTATORS_DIR}/{annotators[TARGET_ANNOTATOR[ann_index][i]]}/{run_dir}'
-            #     # print(copy_src, copy_dst)
-            #     shutil.copy2(copy_src, copy_dst)
+            # Step 3: Assign (duplicate) the documents defined by their index to the target annotator
+            for ann_overlapping in AUDIT_OVERLAPPINGS[ann_index]:          
+                source_doc = f'{ANNOTATORS_DIR}/{annotator}/{run_dir}/{audit_docs[ann_overlapping[0]]}.txt'
+                target_ann = f'{ANNOTATORS_DIR}/{annotators[ann_overlapping[1]]}/{run_dir}'
+                assignments.append((source_doc, target_ann))
 
     # -------------------------------------------------------------------------
 
     # Preparation
     if dummy:
         _create_dummy_docs()
+    
     if backup:
         backup_docs()
-    create_annotators_dirs()
+    
+    if not os.path.exists(ANNOTATORS_DIR):
+        create_annotators_dirs()
+    
+    # Load in memory of all documents to handle
     docs_spool = get_filenames(docs_dir)
+    
+    # List of tuples (doc_to_copy, destination_dir)
     assignments = list()
 
     # Execution of the runs using list comprehensions
@@ -175,15 +203,26 @@ def distribute_ictusnet_documents(docs_dir: str, annotators: tuple, backup: bool
     [shutil.copy2(src, dst) for (src, dst) in assignments]
 
     # -------------------------------------------------------------------------
-    # TESTING
+    # Testing
+    # Comment or uncomment the print or click.echo lines to see some stats for testing.
 
-    # Files per annotator run
-    [print(root, dirs, len(files))
-     for root, dirs, files in os.walk(ANNOTATORS_DIR)]
+    # List of files per run
+    #[print(root, len(files)) for root, dirs, files in os.walk(ANNOTATORS_DIR)]
 
     # Remaining docs spool
-    print(len(docs_spool))
+    #click.echo(len(docs_spool))
+
+    # Result in memory
+    #click.echo(len(assignments))
+
+    # Distinct documents to annotate
+    regex = r'(\d*)\.txt'
+    pattern = re.compile(regex)
+    string = str(assignments)
+    filenames = re.findall(pattern, string)
+    distinct_annotations = len(set(filenames))
+    click.echo(distinct_annotations)
 
 
 if __name__ == '__main__':
-    distribute_ictusnet_documents()
+    main()
