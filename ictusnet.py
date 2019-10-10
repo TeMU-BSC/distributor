@@ -5,11 +5,11 @@ Version: 0.4
 Date: 2019-10-10
 Author of this script:
     Alejandro Asensio <alejandro.asensio@bsc.es>
-Credits for the initial 10-overlappings algorithm ('documents_distribution.ods'):
+Credits for the initial 10-overlappings algorithm:
     Ankush Rana <ankush.rana@bsc.es>
 
-TODO Pick the documents in this proportion: 90% from AQuAS, 10% from SonEspases.
 TODO Make this script able to be usable for each run (create options --complete-run and --individual-run).
+TODO Pick the documents in this proportion: 90% from AQuAS, 10% from SonEspases.
 '''
 
 import os
