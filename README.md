@@ -36,7 +36,7 @@ Test:
 $ pytest
 ```
 
-Help:
+Usage:
 ```
 $ python ictusnet.py --help
 Usage: ictusnet.py [OPTIONS]
@@ -64,7 +64,7 @@ Options:
   -a, --annotators <TEXT TEXT TEXT TEXT>...
                                   Names of the 4 annotators separated by
                                   whitespace.
-  --backup                        Create a backup of the --source-dir.
+  --backup                        Create a backup of the `--source-dir`.
   --dummy                         Create dummy empty files to quickly test
                                   this script.
   --help                          Show this message and exit.
