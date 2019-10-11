@@ -14,6 +14,11 @@ $ pipenv shell
 $ python ictusnet.py
 ```
 
+Test:
+```
+$ pytest
+```
+
 Help:
 ```
 $ python ictusnet.py --help
