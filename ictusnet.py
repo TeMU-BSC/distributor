@@ -74,16 +74,27 @@ AUDIT_OVERLAPPINGS = [
     [(0, 0)]
 ]
 
-# Percentage of document pickings by organization
-# Marta dice que 0.98, 0.02 (sonespases estan muy mal escritos)
-PICKING = {'AQuAS': 0.9, 'SonEspases': 0.1}
+# Fixed percentage of document picking by organization
+FIXED_PERCENTAGE_PICKING = {
+    'sonespases': 0.13,
+    'aquas': 0.87
+}
+
+DELIMITER = ' '
+
+
 # -----------------------------------------------------------------------------
 
 
 @click.command()
+@click.option('--source-file', # type=click.File('r'),
+              help='CSV file with `file cluster` format data.')
+@click.option('--delimiter', type=click.STRING, default=DELIMITER,
+              help='Delimiter for the CSV `--source-file`.')
 @click.option('--source-dir',
               help='Directory that contains EXCLUSIVELY the plain text documents to annotate.')
-@click.option('--annotators', '-a', nargs=4, default=ANNOTATORS['dummy_names'],
+@click.option('--annotators', '-a', nargs=4, type=click.Tuple([str, str, str, str]),
+              default=ANNOTATORS['dummy_names'],
               help='Names of the 4 annotators separated by whitespace.')
 # @click.option('--annotators', '-a', multiple=True, help='Name of an annotator.')
 @click.option('--backup', is_flag=True,
@@ -98,7 +109,8 @@ PICKING = {'AQuAS': 0.9, 'SonEspases': 0.1}
 # @click.option('--run-dir', prompt='New directory name for the run (e.g. `01`)',
 # help='Name for the new directory where the documents are going to be
 # copied.')
-def assign_docs(source_dir: str, annotators: tuple, backup: bool, dummy: bool):
+def assign_docs(source_file: str, delimiter: str, source_dir: str,
+                annotators: tuple, backup: bool, dummy: bool):
     '''
     Distribute plain text documents into different directories regarding the following criteria.
 
@@ -115,6 +127,9 @@ def assign_docs(source_dir: str, annotators: tuple, backup: bool, dummy: bool):
     (iii) Audit run assigns a certain bunch of documents for each annotator,
     overlapping some of them, so some documents will be annotated more than
     once.
+
+    Moreover, the pickings fo the documents depends on the defined percentages
+    regarding the source (SonEspases and AQuAS, which has subclusters).
     '''
 
     # Flags handling
@@ -122,7 +137,8 @@ def assign_docs(source_dir: str, annotators: tuple, backup: bool, dummy: bool):
     if dummy:
         utils.create_empty_files_se(
             DUMMY_DIR, TOTAL_DUMMY_DOCS, DUMMY_EXTENSION)
-        source_dir = DUMMY_DIR
+        # source_dir = DUMMY_DIR
+        source_file
 
     if backup:
         backup_dir = f'{source_dir}_backup'
@@ -148,7 +164,7 @@ def assign_docs(source_dir: str, annotators: tuple, backup: bool, dummy: bool):
     # Variables initialization
 
     # Load in memory of all documents to handle
-    docs_spool = utils.get_files(source_dir)
+    docs_clustered_spool = utils.get_clustered_files_spool(source_file, delimiter)
 
     # List of tuples (file_to_copy, destination_dir)
     assignments = list()
@@ -159,6 +175,7 @@ def assign_docs(source_dir: str, annotators: tuple, backup: bool, dummy: bool):
 
     def training_run(training_dir: str):
         '''Assign exactly the same documents to each annotator training directory.'''
+        random.seed('777')
         training_docs = random.sample(
             docs_spool, k=RUN_TYPES['training']['bunch'])
         [docs_spool.remove(doc) for doc in training_docs]
@@ -171,6 +188,7 @@ def assign_docs(source_dir: str, annotators: tuple, backup: bool, dummy: bool):
     def regular_run(regular_dir: str):
         '''Assign a different bunch of documents to each annotator regular directory.'''
         for annotator in annotators:
+            random.seed('777')
             regular_docs = random.sample(
                 docs_spool, k=RUN_TYPES['regular']['bunch'])
             [docs_spool.remove(doc) for doc in regular_docs]
@@ -183,6 +201,7 @@ def assign_docs(source_dir: str, annotators: tuple, backup: bool, dummy: bool):
         '''Assign a bunch of documents to each annotator, but some of the
         documents are repeated (overlapped).'''
         for (ann_index, annotator) in enumerate(annotators):
+            random.seed('777')
             audit_docs = random.sample(
                 docs_spool, k=RUN_TYPES['audit']['bunch'])
             [docs_spool.remove(doc) for doc in audit_docs]
@@ -212,30 +231,33 @@ def assign_docs(source_dir: str, annotators: tuple, backup: bool, dummy: bool):
 
     # -------------------------------------------------------------------------
 
-    # Execution of the runs using list comprehensions
-    [training_run(run_dir) for run_dir in RUN_TYPES['training']['dirs']]
-    [regular_run(run_dir) for run_dir in RUN_TYPES['regular']['dirs']]
-    [audit_run(run_dir) for run_dir in RUN_TYPES['audit']['dirs']]
+    # # Execution of the runs using list comprehensions
+    # [training_run(run_dir) for run_dir in RUN_TYPES['training']['dirs']]
+    # [regular_run(run_dir) for run_dir in RUN_TYPES['regular']['dirs']]
+    # [audit_run(run_dir) for run_dir in RUN_TYPES['audit']['dirs']]
 
-    # Write to disk: Copy the selected files to the target directories
-    [shutil.copy2(src, dst) for (src, dst) in assignments]
+    # # Write to disk: Copy the selected files to the target directories
+    # [shutil.copy2(src, dst) for (src, dst) in assignments]
 
-    # -------------------------------------------------------------------------
+    # # -------------------------------------------------------------------------
 
-    # Testing - Comment or uncomment the lines to output some stats.
+    # # Testing - Comment or uncomment the lines to output some stats.
 
-    [print(root, len(files))
-     for root, dirs, files in os.walk(ANNOTATORS['root'])]
-    print('Unused documents:', len(docs_spool))
-    print('Total number of annotations:', len(assignments))
+    # [print(root, len(files))
+    #  for root, dirs, files in os.walk(ANNOTATORS['root'])]
+    # print('Unused documents:', len(docs_spool))
+    # print('Total number of annotations:', len(assignments))
 
-    # Distinct documents to annotate
-    regex = r'(\d*)\.txt'
-    pattern = re.compile(regex)
-    string = str(assignments)
-    filenames = re.findall(pattern, string)
-    distinct_annotations = len(set(filenames))
-    print('Number of distinct annotations:', distinct_annotations)
+    # # Distinct documents to annotate
+    # regex = r'(\d*)\.txt'
+    # pattern = re.compile(regex)
+    # string = str(assignments)
+    # filenames = re.findall(pattern, string)
+    # distinct_annotations = len(set(filenames))
+    # print('Number of distinct annotations:', distinct_annotations)
+
+    print()
+
 
 
 if __name__ == '__main__':

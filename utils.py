@@ -9,9 +9,10 @@ Author of this utils module:
     Alejandro Asensio <alejandro.asensio@bsc.es>
 '''
 
+import csv
 import os
 import shutil
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 from collections import Counter
 
 
@@ -31,12 +32,25 @@ def create_docs_backup_se(source_dir: str, backup_dir: str):
         shutil.copytree(source_dir, backup_dir)
 
 
-def get_files(source_dir: str) -> List[str]:
+def get_files_spool_old(source_dir: str) -> List[str]:
     '''Return the list of all filenames without extension inside the given directory.'''
     filenames = list()
     for root, dirs, files in os.walk(source_dir):
         [filenames.append(f) for f in files]
     return filenames
+
+
+def get_clustered_files_spool(source_file: str, delimiter: str) -> Dict[str, List[str]]:
+    '''Return a dictionary with the clusters ids as keys and the list of files
+    for each cluster as values.'''
+    docs_clusters_spool = dict()
+    with open(source_file) as csvfile:
+        reader = csv.DictReader(csvfile, delimiter=' ')
+        for row in reader:
+            if row['cluster'] not in docs_clusters_spool.keys():
+                docs_clusters_spool[row['cluster']] = list()
+            docs_clusters_spool[row['cluster']].append(row['file'])
+    return docs_clusters_spool
 
 
 def create_dirs_tree_se(root: str, dirs: Tuple[str, str, str, str],
@@ -48,6 +62,7 @@ def create_dirs_tree_se(root: str, dirs: Tuple[str, str, str, str],
             dirpath = os.path.join(root, directory, subdir)
             if not os.path.exists(dirpath):
                 os.makedirs(dirpath)
+
 
 def count_occurrences_in_list_of_list_of_tuples(
     outter_list: List[List[tuple]], element) -> int:
