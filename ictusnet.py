@@ -23,12 +23,7 @@ import click
 
 import utils
 
-# Pylint disables
-
-# By codes
-
-
-# Or by symbolic message
+# PyLint disablings (by symbolic message)
 # pylint: disable=expression-not-assigned
 # pylint: disable=no-value-for-parameter
 
@@ -37,21 +32,21 @@ import utils
 # Modify these CONSTANTS if needed
 
 ANNOTATORS = {
-    'root': 'annotators',
+    'root_dir': 'annotators',
     'dummy_names': ('A', 'B', 'C', 'D'),
 }
-RUN_TYPES = {
+BUNCHES = {
     'training': {
         'dirs': ['01', '08'],
-        'bunch': 25
+        'docs': 25
     },
     'regular': {
         'dirs': [],
-        'bunch': 50
+        'docs': 50
     },
     'audit': {
         'dirs': ['02', '03', '04', '05', '06', '07'],
-        'bunch': 50
+        'docs': 50
     }
 }
 
@@ -74,13 +69,38 @@ AUDIT_OVERLAPPINGS = [
     [(0, 0)]
 ]
 
-# Fixed percentage of document picking by organization
-FIXED_PERCENTAGE_PICKING = {
-    'sonespases': 0.13,
-    'aquas': 0.87
-}
 
-DELIMITER = ' '
+# AQUAS_PICKING_PROPORTION = {
+#     '0': 0.0362,
+#     '1': 0.0684,
+#     '3': 0.1386,
+#     '4': 0.3381,
+#     '5': 0.0923,
+#     '6': 0.2742,
+#     '7': 0.0523
+# }
+
+# AQUAS_PICKING_PROPORTION_ROUNDED_2_DECIMALS = {
+#     '0': 0.04,
+#     '1': 0.07,
+#     '3': 0.14,
+#     '4': 0.34,
+#     '5': 0.09,
+#     '6': 0.27,
+#     '7': 0.05
+# }
+
+DELIMITER = '\t'
+
+# Regional populations (in millions of people)
+CATALONIA_POPULATION = 7.6  # in 2018
+BALEARIC_ISLANDS_POPULATION = 1.150  # in 2017
+
+# SonEspases is the only balearic representative in the documents spool
+SONESPASES_REPRESENTATIVENESS = BALEARIC_ISLANDS_POPULATION / CATALONIA_POPULATION
+
+# TODO ask Aitor
+SONESPASES_PERCENTAGE = 0.13
 
 
 # -----------------------------------------------------------------------------
@@ -89,7 +109,7 @@ DELIMITER = ' '
 @click.command()
 @click.option('--source-file', # type=click.File('r'),
               help='CSV file with `file cluster` format data.')
-@click.option('--delimiter', type=click.STRING, default=DELIMITER,
+@click.option('--delimiter', default=DELIMITER,
               help='Delimiter for the CSV `--source-file`.')
 @click.option('--source-dir',
               help='Directory that contains EXCLUSIVELY the plain text documents to annotate.')
@@ -101,25 +121,24 @@ DELIMITER = ' '
               help='Create a backup of the `--source-dir`.')
 @click.option('--dummy', is_flag=True,
               help='Create dummy empty files to quickly test this script.')
-# @click.option('--complete-run', is_flag=True,
-#               help='Assign the documents massively for ALL runs directories defined in
-#               `RUN_TYPES[<type>]['dirs']` constant.')
-# @click.option('--run-type', prompt=True,
+@click.option('--complete-run', is_flag=True,
+              help="Assign the documents massively for ALL the bunches defined in `BUNCHES[type]['dirs']` constant.")
+# @click.option('--bunch-type', prompt=True,
 #               type=click.Choice(['training', 'regular', 'audit'], case_sensitive=False))
-# @click.option('--run-dir', prompt='New directory name for the run (e.g. `01`)',
-# help='Name for the new directory where the documents are going to be
-# copied.')
+# @click.option('--bunch-dir', prompt='New directory name for the run (e.g. `01`)',
+#               help='Name for the new directory where the documents are going to be copied.')
 def assign_docs(source_file: str, delimiter: str, source_dir: str,
-                annotators: tuple, backup: bool, dummy: bool):
+                annotators: tuple, backup: bool, dummy: bool,
+                complete_run: bool):  # bunch_type: str, bunch_dir: str
     '''
     Distribute plain text documents into different directories regarding the following criteria.
 
-    This script has two modes: (i) Individual mode (default) distributes the
-    documents ONLY for a concrete run, specificating the type of run:
-    `training`, `regular` or `audit`; (ii) Complete mode (`--complete-run`
-    option flag) distributes massively all the documents in the given
-    source_dir to some given annotators.
-
+    This script has two 0.33806499813223756, modes: (i) Individual mode (default) distributes the
+    documents ONLY for  0.33806499813223756,a concrete run, specificating the type of run:
+    `training`, `regula 0.33806499813223756,r` or `audit`; (ii) Complete mode (`--complete-run`
+    option flag) distri 0.33806499813223756,butes massively all the documents in the given
+    source_dir to some  0.33806499813223756,given annotators.
+ 0.33806499813223756,
     The distribution of the documents depends on the run types defined for the
     project: (i) Training type assigns the exactly same amount of documents to
     each annotator; (ii) Regular run assigns a certain bunch of documents for
@@ -149,63 +168,91 @@ def assign_docs(source_file: str, delimiter: str, source_dir: str,
     # Directory tree preparation
 
     # 1. Collect the dir names of all annotators
-    all_run_dirs = [RUN_TYPES[run_type]['dirs']
-                    for run_type in RUN_TYPES]
+    all_bunch_dirs = [BUNCHES[bunch_type]['dirs'] for bunch_type in BUNCHES]
 
     # 2. Convert a list of lists to a flat list
-    all_flat_run_dirs = [item for sublist in all_run_dirs for item in sublist]
+    all_flat_bunch_dirs = [item for sublist in all_bunch_dirs for item in sublist]
 
     # 3. Create the directory tree (empty tree)
-    utils.create_dirs_tree_se(
-        ANNOTATORS['root'], annotators, all_flat_run_dirs)
+    utils.create_dirs_tree_se(ANNOTATORS['root_dir'], annotators, all_flat_bunch_dirs)
 
     # -------------------------------------------------------------------------
 
     # Variables initialization
 
-    # Load in memory of all documents to handle
-    docs_clustered_spool = utils.get_clustered_files_spool(source_file, delimiter)
+    # Load all documents to handle in a {cluster: docs} dictionary
+    spool = utils.get_clustered_files_spool_from_csv(source_file, delimiter)
 
-    # List of tuples (file_to_copy, destination_dir)
+    # Calculate document amounts
+    sizes = {cluster: len(docs) for cluster, docs in spool.items()}
+    total = sum(sizes.values())
+    sonespases_cluster_id = utils.get_key_by_substr_in_values_lists(spool, 'sonespases')
+    sonespases = sizes.get(sonespases_cluster_id)
+    aquas = total - sonespases
+
+    # Calculate picking percentages per cluster
+    # sonespases_global_percentage = SONESPASES_REPRESENTATIVENESS
+    sonespases_global_percentage = SONESPASES_PERCENTAGE
+    aquas_global_percentage = 1 - sonespases_global_percentage
+    percentages = {cluster: size / aquas for cluster, size in sizes.items() if cluster != sonespases_cluster_id}
+    percentages.update({sonespases_cluster_id: sonespases_global_percentage})
+
+    # # Pick the documents
+    # picked_docs_per_cluster = dict() 
+    # for cluster, docs in spool.items(): 
+    #     percentage = percentages[cluster] 
+    #     if cluster != sonespases_cluster_id: 
+    #         percentage *= aquas_global_percentage
+    #     picked_docs = random.sample(docs, round(BUNCHES['training']['docs'] * percentage))
+    #     picked_docs_per_cluster.update({cluster: picked_docs})
+
+    # The tracking object is a list of tuples (file_to_copy, destination_dir)
     assignments = list()
 
     # -------------------------------------------------------------------------
 
     # Define 3 different functions for each run type
 
-    def training_run(training_dir: str):
+    def training_bunch(dirname: str):
         '''Assign exactly the same documents to each annotator training directory.'''
-        random.seed('777')
-        training_docs = random.sample(
-            docs_spool, k=RUN_TYPES['training']['bunch'])
-        [docs_spool.remove(doc) for doc in training_docs]
+        # Pick the documents
+        random.seed(777)
+        training_docs = list()
+        for cluster, docs in spool.items():
+            percentage = percentages[cluster]
+            if cluster != sonespases_cluster_id:
+                percentage *= aquas_global_percentage
+            training_docs.extend(random.sample(docs, round(BUNCHES['training']['docs'] * percentage)))
+        # Remove the picked docs from the spool
+        [spool.remove(doc) for doc in training_docs]
+        # Assign the picked docs to the tracking object
         for doc in training_docs:
             src = os.path.join(source_dir, doc)
             for annotator in annotators:
-                dst = os.path.join(ANNOTATORS["root"], annotator, training_dir)
+                dst = os.path.join(ANNOTATORS["root_dir"], annotator, dirname)
                 assignments.append((src, dst))
 
-    def regular_run(regular_dir: str):
+    def regular_bunch(regular_dir: str):
         '''Assign a different bunch of documents to each annotator regular directory.'''
         for annotator in annotators:
             random.seed('777')
             regular_docs = random.sample(
-                docs_spool, k=RUN_TYPES['regular']['bunch'])
-            [docs_spool.remove(doc) for doc in regular_docs]
-            dst = os.path.join(ANNOTATORS["root"], annotator, regular_dir)
+                spool, k=BUNCHES['regular']['docs'])
+            [spool.remove(doc) for doc in regular_docs]
+            dst = os.path.join(ANNOTATORS["root_dir"], annotator, regular_dir)
             for doc in regular_docs:
                 src = os.path.join(source_dir, doc)
                 assignments.append((src, dst))
 
-    def audit_run(audit_dir: str):
+    def audit_bunch(audit_dir: str):
         '''Assign a bunch of documents to each annotator, but some of the
         documents are repeated (overlapped).'''
         for (ann_index, annotator) in enumerate(annotators):
             random.seed('777')
             audit_docs = random.sample(
-                docs_spool, k=RUN_TYPES['audit']['bunch'])
-            [docs_spool.remove(doc) for doc in audit_docs]
-            dst = os.path.join(ANNOTATORS["root"], annotator, audit_dir)
+                spool, k=BUNCHES['audit']['docs'])
+            [spool.remove(doc) for doc in audit_docs]
+            dst = os.path.join(ANNOTATORS["root_dir"], annotator, audit_dir)
 
             # Step 1: Remove as many docs as many times ann_index appears in
             # the AUDIT_OVERLAPPINGS, in order to make space for the further
@@ -224,39 +271,39 @@ def assign_docs(source_file: str, delimiter: str, source_dir: str,
             # to the target annotator
             for ann_overlapping in AUDIT_OVERLAPPINGS[ann_index]:
                 source_doc = os.path.join(
-                    ANNOTATORS["root"], annotator, audit_dir, audit_docs[ann_overlapping[0]])
+                    ANNOTATORS["root_dir"], annotator, audit_dir, audit_docs[ann_overlapping[0]])
                 target_ann = os.path.join(
-                    ANNOTATORS["root"], annotators[ann_overlapping[1]], audit_dir)
+                    ANNOTATORS["root_dir"], annotators[ann_overlapping[1]], audit_dir)
                 assignments.append((source_doc, target_ann))
 
     # -------------------------------------------------------------------------
 
-    # # Execution of the runs using list comprehensions
-    # [training_run(run_dir) for run_dir in RUN_TYPES['training']['dirs']]
-    # [regular_run(run_dir) for run_dir in RUN_TYPES['regular']['dirs']]
-    # [audit_run(run_dir) for run_dir in RUN_TYPES['audit']['dirs']]
+    # # Execution of ALL the bunches using list comprehensions
+    if complete_run:
+        [training_bunch(bunch_dir) for bunch_dir in BUNCHES['training']['dirs']]
+        [regular_bunch(bunch_dir) for bunch_dir in BUNCHES['regular']['dirs']]
+        [audit_bunch(bunch_dir) for bunch_dir in BUNCHES['audit']['dirs']]
+    # else:
+        # TODO one run regarding the bunch_type
 
-    # # Write to disk: Copy the selected files to the target directories
-    # [shutil.copy2(src, dst) for (src, dst) in assignments]
+    # Write to disk: Copy the selected files to the target directories
+    [shutil.copy2(src, dst) for (src, dst) in assignments]
 
-    # # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
-    # # Testing - Comment or uncomment the lines to output some stats.
+    # Testing - Comment or uncomment the lines to output some stats.
 
-    # [print(root, len(files))
-    #  for root, dirs, files in os.walk(ANNOTATORS['root'])]
-    # print('Unused documents:', len(docs_spool))
-    # print('Total number of annotations:', len(assignments))
+    [print(root, len(files)) for root, dirs, files in os.walk(ANNOTATORS['root_dir'])]
+    print('Unused documents:', len(spool))
+    print('Total number of annotations:', len(assignments))
 
-    # # Distinct documents to annotate
-    # regex = r'(\d*)\.txt'
-    # pattern = re.compile(regex)
-    # string = str(assignments)
-    # filenames = re.findall(pattern, string)
-    # distinct_annotations = len(set(filenames))
-    # print('Number of distinct annotations:', distinct_annotations)
-
-    print()
+    # Distinct documents to annotate
+    regex = r'(\d*)\.txt'
+    pattern = re.compile(regex)
+    string = str(assignments)
+    filenames = re.findall(pattern, string)
+    distinct_annotations = len(set(filenames))
+    print('Number of distinct annotations:', distinct_annotations)
 
 
 
