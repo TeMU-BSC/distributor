@@ -1,17 +1,13 @@
 '''Tests for ictusnet.py script'''
 
 from click.testing import CliRunner
-from ictusnet import main
+from ictusnet import distribute_documents
 import re
 
-def test_remaining_docs_spool():
-    '''remaining_docs_spool = TOTAL_DUMMY_DOCS - (trainings * TRAINING_BUNCH + regulars * REGULAR_BUNCH + audits * AUDIT_BUNCH)'''
-    # TODO
-    assert True
-    
-def test_without_any_option():
+
+def test_execution_without_errors():
     runner = CliRunner()
-    result = runner.invoke(main, ['--dummy'])
-    result = runner.invoke(main)
+    result = runner.invoke(distribute_documents,
+                           ['--clusters-file', 'labels_sup_umap_emb_8.tsv'])
     assert result.exit_code == 0
-    assert result.output == '1202\n'
+    # assert result.output == 'Number of distinct annotations: 1202\n...'
