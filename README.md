@@ -13,7 +13,7 @@ Requirements:
 - python3
 - pip
 
-Run:
+Set up the environment:
 ```
 # Enter the project directory (IctusNET by default)
 $ cd IctusNET
@@ -26,9 +26,15 @@ $ pipenv install
 
 # Activate virtual environment with pipenv
 $ pipenv shell
+```
 
-# Example of running the script
+Run the script:
+```
+# Example for creating empty files in a dummy_docs directory
 $ python ictusnet.py --clusters-file labels_sup_umap_emb_8.tsv --write-to-disk
+
+# Example for executing the real distribution of the documents
+$ python ictusnet.py --source-dir /path/to/real/docs/ --clusters-file labels_sup_umap_emb_8.tsv --write-to-disk
 ```
 
 Test:
