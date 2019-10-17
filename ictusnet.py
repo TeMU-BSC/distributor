@@ -132,7 +132,7 @@ def distribute_documents(clusters_file: str, delimiter: str, source_dir: str,
     overlapping some of them, so some documents will be annotated more than
     once.
 
-    Moreover, the pickings fo the documents depends on the defined percentages
+    Moreover, the pickings of the documents depend on the defined percentages
     regarding the source (SonEspases and AQuAS, which has subclusters).
     '''
 
