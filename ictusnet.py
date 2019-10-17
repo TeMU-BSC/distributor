@@ -9,6 +9,13 @@ Credits to:
       algorithm, and
     - Aitor Gonzalez <aitor.gonzalez@bsc.es> for the follow-up of
       the entire IctusNET project.
+
+TODO This script has two modes: (i) Individual mode (default) distributes the
+    documents ONLY for a concrete run, specificating the type of run:
+    `training`, `regular` or `audit`; (ii) Complete mode (`--complete-run`
+    option flag) distributes massively all the documents in the given
+    corpus_dir to some given annotators.
+
 '''
 
 import os
@@ -64,14 +71,8 @@ DELIMITER = '\t'
 # Seed for random reproducibility purposes (the value can be whatever integer)
 SEED = 777
 
-# Constants for dummy data
-# ========================
-
-# The minimum amount of dummy docs should be:
-# (trainings * TRAINING_BUNCH) + (regulars * REGULAR_BUNCH) + (audits * AUDIT_BUNCH)
-TOTAL_DUMMY_DOCS = 1400
-DUMMY_EXTENSION = '.txt'
-DUMMY_DIR = 'dummy_docs'
+# Directory to put some empty files for testing
+TEST_DIR = 'empty_corpus'
 
 # Regional populations (in millions of people)
 # ============================================
@@ -80,49 +81,36 @@ CATALONIA_POPULATION = 7.6  # in 2018
 BALEARIC_ISLANDS_POPULATION = 1.150  # in 2017
 
 # SonEspases is the only balearic representative in the documents spool
-SONESPASES_REPRESENTATIVENESS = BALEARIC_ISLANDS_POPULATION / CATALONIA_POPULATION
-
-# TODO ask Aitor again the source of populations
-SONESPASES_PERCENTAGE = 0.13
+# SONESPASES_REPRESENTATIVENESS = BALEARIC_ISLANDS_POPULATION / CATALONIA_POPULATION
+SONESPASES_REPRESENTATIVENESS = 0.13  # TODO ask Aitor again the source of populations
 
 # -----------------------------------------------------------------------------
 
 
 @click.command()
-@click.option('--clusters-file',  # type=click.File('r'),
-              help='CSV file with `file cluster` format data.')
-@click.option('--delimiter', default=DELIMITER,
-              help='Delimiter for the CSV `--source-file`.')
-@click.option('--source-dir', default=DUMMY_DIR,
+@click.option('--clusters-file',
+              help='CSV file with `file,cluster` format rows; it can have any delimiter (tabs for TSV or spaces for TXT).')
+@click.option('--corpus-dir', default=TEST_DIR,
               help='Directory that contains EXCLUSIVELY the plain text documents to annotate.')
 @click.option('--annotators', nargs=4, type=click.Tuple([str, str, str, str]),
               default=ANNOTATORS['dummy_names'],
               help='Names of the 4 annotators separated by whitespace.')
-@click.option('--write-to-disk', is_flag=True,
-              help='Copy files to the target annotators directories.')
 # @click.option('--annotators', '-a', multiple=True, help='Name of an annotator.')
 @click.option('--backup', is_flag=True,
-              help='Create a backup of the `--source-dir`.')
-@click.option('--dummy', is_flag=True,
-              help='Create dummy empty files to quickly test this script.')
+              help='Create a backup of the `--corpus-dir`.')
+@click.option('--test-mode', is_flag=True,
+              help='Create dummy empty files reading the CSV content to test this script without writing to disk.')
 # @click.option('--complete-distribution', is_flag=True,
 #               help="Distribute the documents massively for all bunches in one single execution.")
 # @click.option('--bunch-type', prompt=True,
 #               type=click.Choice(['training', 'regular', 'audit'], case_sensitive=False))
 # @click.option('--bunch-dir', prompt='New directory name for the run (e.g. `01`)',
-# help='Name for the new directory where the documents are going to be
-# copied.')
-def distribute_documents(clusters_file: str, delimiter: str, source_dir: str,
-                         annotators: tuple, write_to_disk: bool, backup: bool,
-                         dummy: bool):  # complete_distribution: bool, bunch_type: str, bunch_dir: str
+#               help='Name for the new directory where the documents are going to be copied.')
+def distribute_documents(clusters_file: str, corpus_dir: str,
+                         annotators: tuple, backup: bool, test_mode: bool):
+                         # complete_distribution: bool, bunch_type: str, bunch_dir: str
     '''
     Distribute plain text documents into different directories regarding the following criteria.
-
-    This script has two modes: (i) Individual mode (default) distributes the
-    documents ONLY for a concrete run, specificating the type of run:
-    `training`, `regular` or `audit`; (ii) Complete mode (`--complete-run`
-    option flag) distributes massively all the documents in the given
-    source_dir to some given annotators.
 
     The distribution of the documents depends on the run types defined for the
     project: (i) Training type assigns the exactly same amount of documents to
@@ -136,27 +124,12 @@ def distribute_documents(clusters_file: str, delimiter: str, source_dir: str,
     regarding the source (SonEspases and AQuAS, which has subclusters).
     '''
 
-    # Flags handling
-    # ==============
-
-    if dummy:
-        utils.create_empty_files_se(
-            DUMMY_DIR, TOTAL_DUMMY_DOCS, DUMMY_EXTENSION)
-        source_dir = DUMMY_DIR
-
-    if backup:
-        backup_dir = f'{source_dir}_backup'
-        utils.create_docs_backup_se(source_dir, backup_dir)
-
-    # PRE_PRODUCTION TESTING
-    utils.create_empty_files_from_tsv_se(DUMMY_DIR, clusters_file, delimiter)
-
     # Variables initialization
     # ========================
 
     # Load all documents to handle in a {cluster: docs} dictionary
-    spool = utils.get_clustered_files_spool_from_csv(
-        clusters_file, delimiter)
+    delimiter = utils.get_delimiter(clusters_file)
+    spool = utils.get_clustered_dict(clusters_file, delimiter)
 
     # Calculate document amounts
     sizes = {cluster: len(docs) for cluster, docs in spool.items()}
@@ -167,8 +140,7 @@ def distribute_documents(clusters_file: str, delimiter: str, source_dir: str,
     aquas = total - sonespases
 
     # Calculate picking percentages per cluster
-    # sonespases_global_percentage = SONESPASES_REPRESENTATIVENESS
-    sonespases_global_percentage = SONESPASES_PERCENTAGE
+    sonespases_global_percentage = SONESPASES_REPRESENTATIVENESS
     aquas_global_percentage = 1 - sonespases_global_percentage
     percentages = dict()
     for cluster, size in sizes.items():
@@ -261,7 +233,7 @@ def distribute_documents(clusters_file: str, delimiter: str, source_dir: str,
 
         # Add the picked docs to the distributions object
         for doc in training_docs:
-            src = os.path.join(source_dir, doc)
+            src = os.path.join(corpus_dir, doc)
             for annotator in annotators:
                 dst = os.path.join(ANNOTATORS["root_dir"], annotator, dirname)
                 distributions.append((src, dst))
@@ -275,7 +247,7 @@ def distribute_documents(clusters_file: str, delimiter: str, source_dir: str,
             # Add the picked docs to the distributions object
             dst = os.path.join(ANNOTATORS["root_dir"], annotator, regular_dir)
             for doc in regular_docs:
-                src = os.path.join(source_dir, doc)
+                src = os.path.join(corpus_dir, doc)
                 distributions.append((src, dst))
 
     def audit_bunch(audit_dir: str):
@@ -296,7 +268,7 @@ def distribute_documents(clusters_file: str, delimiter: str, source_dir: str,
             # Step 2: Add the bunch of docs to this annotator
             dst = os.path.join(ANNOTATORS["root_dir"], annotator, audit_dir)
             for doc in audit_docs:
-                src = os.path.join(source_dir, doc)
+                src = os.path.join(corpus_dir, doc)
                 distributions.append((src, dst))
 
             # Step 3: Duplicate the documents defined in AUDIT_OVERLAPPINGS
@@ -326,8 +298,17 @@ def distribute_documents(clusters_file: str, delimiter: str, source_dir: str,
     # elif bunch_type == 'audit':
     #     audit_bunch(bunch_dir)
 
-    if write_to_disk:
-        write_to_disk_function()
+    # Flags handling before writing to disk
+    # =====================================
+
+    if test_mode:
+        utils.create_empty_files_from_csv_se(TEST_DIR, clusters_file, delimiter)
+
+    if backup:
+        backup_dir = f'{corpus_dir}_backup'
+        utils.create_docs_backup_se(corpus_dir, backup_dir)
+    
+    write_to_disk_function()
 
     testing_printings()
 
@@ -336,3 +317,4 @@ def distribute_documents(clusters_file: str, delimiter: str, source_dir: str,
 
 if __name__ == '__main__':
     distribute_documents()
+annotators

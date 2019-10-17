@@ -16,20 +16,28 @@ from typing import Dict, List, Tuple
 from collections import Counter
 
 
-def create_empty_files_se(dirname: str, total_dummy_docs: int, extension: str):
-    '''Create some empty files with incremental numeric filenames in the given
-    new directory name.'''
-    if not os.path.exists(dirname):
-        os.makedirs(dirname)
-    for filename in range(1, total_dummy_docs + 1):
-        open(f'{dirname}/{filename}{extension}', 'w')
+def get_delimiter(csv_file: str) -> str:
+    '''Return the field delimiter of the given CSV file.'''
+    with open(csv_file) as csvfile:
+        sniffer = csv.Sniffer()
+        dialect = sniffer.sniff(csvfile.readline())
+    return dialect.delimiter
 
 
-def create_empty_files_from_tsv_se(dirname: str, tsv_file: str, delimiter: str):
+# def create_empty_files_se(dirname: str, total_dummy_docs: int, extension: str):
+#     '''Create some empty files with incremental numeric filenames in the given
+#     new directory name.'''
+#     if not os.path.exists(dirname):
+#         os.makedirs(dirname)
+#     for filename in range(1, total_dummy_docs + 1):
+#         open(f'{dirname}/{filename}{extension}', 'w')
+
+
+def create_empty_files_from_csv_se(dirname: str, csv_file: str, delimiter: str):
     '''Create as many empty files as there are tsv_file rows inside dirname.'''
     if not os.path.exists(dirname):
         os.makedirs(dirname)
-    with open(tsv_file) as csvfile:
+    with open(csv_file) as csvfile:
         reader = csv.DictReader(csvfile, delimiter=delimiter)
         for row in reader:
             open(f"{dirname}/{row['file']}", 'w')
@@ -60,27 +68,23 @@ def create_dirs_tree_se(root: str, dirs: Tuple[str, str, str, str],
 #     return filenames
 
 
-def get_flat_files(clusters_file: str, delimiter: str) -> List[str]:
-    '''Return a list of files from the CSV source file.'''
-    flat_files = list()
-    with open(clusters_file) as csvfile:
-        reader = csv.DictReader(csvfile, delimiter=delimiter)
-        for row in reader:
-            flat_files.append(row['file'])
-    return flat_files
-
-
-def get_clustered_files_spool_from_csv(
-        clusters_file: str, delimiter: str) -> Dict[str, List[str]]:
+def get_clustered_dict(clusters_file: str, delimiter: str) -> Dict[str, List[str]]:
     '''Return a dictionary with the clusters id's as keys and the list of
     files as values.'''
     docs_clusters_spool = dict()
     with open(clusters_file) as csvfile:
+        # # Write the header TODO
+        # fieldnames = ['filename', 'cluster']
+        # writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=delimiter)
+        # writer.writeheader()
+
+        # Read the rows
         reader = csv.DictReader(csvfile, delimiter=delimiter)
         for row in reader:
             if row['cluster'] not in docs_clusters_spool.keys():
                 docs_clusters_spool[row['cluster']] = list()
             docs_clusters_spool[row['cluster']].append(row['file'])
+    
     return docs_clusters_spool
 
 
