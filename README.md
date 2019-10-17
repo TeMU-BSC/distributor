@@ -26,7 +26,7 @@ $ cd IctusNET
 $ pip install --user --upgrade pipenv
 ```
 
-- Install requried dependencies listed in `Pipfile`
+- Install required dependencies listed in `Pipfile`
 ```bash
 $ pipenv install
 ```
