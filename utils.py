@@ -24,13 +24,13 @@ def get_delimiter(csv_file: str) -> str:
     return dialect.delimiter
 
 
-# def create_empty_files_se(dirname: str, total_dummy_docs: int, extension: str):
-#     '''Create some empty files with incremental numeric filenames in the given
-#     new directory name.'''
-#     if not os.path.exists(dirname):
-#         os.makedirs(dirname)
-#     for filename in range(1, total_dummy_docs + 1):
-#         open(f'{dirname}/{filename}{extension}', 'w')
+def create_empty_files_se(dirname: str, total_dummy_docs: int, extension: str):
+    '''Create some empty files with incremental numeric filenames in the given
+    new directory name.'''
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    for filename in range(1, total_dummy_docs + 1):
+        open(f'{dirname}/{filename}{extension}', 'w')
 
 
 def create_empty_files_from_csv_se(dirname: str, csv_file: str, delimiter: str):
@@ -50,24 +50,6 @@ def create_docs_backup_se(source_dir: str, backup_dir: str):
         shutil.copytree(source_dir, backup_dir)
 
 
-def create_dirs_tree_se(root: str, dirs: Tuple[str, str, str, str],
-                        subdirs: List[str]):
-    '''Create a directory tree in the working directory.'''
-    for directory in dirs:
-        for subdir in subdirs:
-            dirpath = os.path.join(root, directory, subdir)
-            if not os.path.exists(dirpath):
-                os.makedirs(dirpath)
-
-# def get_files_spool_old(source_dir: str) -> List[str]:
-#     '''Return the list of all filenames without extension inside the given
-#     directory.'''
-#     filenames = list()
-#     for root, dirs, files in os.walk(source_dir):
-#         [filenames.append(f) for f in files]
-#     return filenames
-
-
 def get_clustered_dict(clusters_file: str, delimiter: str) -> Dict[str, List[str]]:
     '''Return a dictionary with the clusters id's as keys and the list of
     files as values.'''
@@ -84,7 +66,7 @@ def get_clustered_dict(clusters_file: str, delimiter: str) -> Dict[str, List[str
             if row['cluster'] not in docs_clusters_spool.keys():
                 docs_clusters_spool[row['cluster']] = list()
             docs_clusters_spool[row['cluster']].append(row['file'])
-    
+
     return docs_clusters_spool
 
 
