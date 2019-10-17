@@ -1,48 +1,59 @@
 # ICTUSnet Annotation Documents Assignment Script
 
-Script to automatic distribute the documents to a given list of annotators.
+Script that distributes automatically the documents to some annotators.
 
 The expected output is the creation of several nested directories with the
-documents ditributed as defined inside the `RUNS_DIRS` and `AUDIT_OVERLAPPINGS`
-contants of the `ictusnet.py` command-line script.
+documents ditributed as defined in CONSTANTS inside the `ictusnet.py`
+command-line script made with [Click](https://click.palletsprojects.com/en/7.x/).
 
 The documents are not moved to the new nested directories, they are copied
 instead, preserving the original documents directory.
 
-Requirements:
+## Requirements:
 - python3
-- pip
+- pip (or pip3)
 
-Set up the environment:
-```
-# Enter the project directory (IctusNET by default)
+## Set up the environment:
+
+- Clone the repo and enter the project directory (`IctusNET` by default)
+```bash
+$ git clone https://github.com/TeMU-BSC/IctusNET.git
 $ cd IctusNET
+```
 
-# Install pipenv - a wonderful package dependency managing tool
+- Install pipenv - a wonderful package dependency managing tool
+```bash
 $ pip install --user --upgrade pipenv
+```
 
-# Install requried dependencies listed in `Pipfile`
+- Install requried dependencies listed in `Pipfile`
+```bash
 $ pipenv install
+```
 
-# Activate virtual environment with pipenv
+- Activate the virtual environment using pipenv
+```bash
 $ pipenv shell
 ```
 
-Run the script:
-```
-# Example for creating empty files in a dummy_docs directory
-$ python ictusnet.py --clusters-file labels_sup_umap_emb_8.tsv --write-to-disk
+## Run the script:
 
-# Example for executing the real distribution of the documents
+- Example for creating empty files in a dummy_docs directory
+```bash
+$ python ictusnet.py --clusters-file labels_sup_umap_emb_8.tsv --write-to-disk
+```
+
+- Example for executing the real distribution of the documents
+```bash
 $ python ictusnet.py --source-dir /path/to/real/docs/ --clusters-file labels_sup_umap_emb_8.tsv --write-to-disk
 ```
 
-Test:
+## Test:
 ```
 $ pytest
 ```
 
-Usage:
+## Usage:
 ```
 $ python ictusnet.py --help
 
