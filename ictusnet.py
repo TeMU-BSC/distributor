@@ -18,11 +18,13 @@ TODO This script has two modes: (i) Individual mode (default) distributes the
 
 '''
 
+import collections
+from itertools import combinations, cycle, islice
 import os
 import re
 import random
 import shutil
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 import click
 
@@ -37,8 +39,10 @@ import utils
 
 ANNOTATORS = {
     'root_dir': 'annotators',
+    'total': 4,
     'dummy_names': ('A', 'B', 'C', 'D'),
 }
+
 BUNCHES = {
     'training': {
         'dirs': ['08'],
@@ -54,16 +58,22 @@ BUNCHES = {
     }
 }
 
-# Documents overlapping map. This is a list of lists, which each list is made
-# of tuples with the structure: (document_index, destination_annotator_index).
-# Note that with 8 overlappings, each annotator has 4 documents that are
-# equally compared with other annotators.
-AUDIT_OVERLAPPINGS = [
-    [(0, 1), (1, 1), (2, 3)],
-    [(0, 2), (1, 2)],
-    [(0, 3), (1, 3)],
-    [(0, 0)]
-]
+# TOTAL_PICKINGS = 1225  # If bunch 01 is included in BUNCHES['training']['dirs']
+TOTAL_PICKINGS = 1177  # If bunch 01 is not included in BUNCHES['training']['dirs']
+
+# Documents overlapping map. This is a list of lists, which each sublist is
+# made of tuples (annotator_to_copy_from, annotator_to_paste_to).
+OVERLAPPINGS = 8
+annotators_list = list(range(ANNOTATORS['total']))
+comb_list = list(combinations(annotators_list, 2))
+intertagger_seq = [list(islice(cycle(comb_list), i, i + OVERLAPPINGS)) for i in range(0, 5, 2)]
+
+# AUDIT_OVERLAPPINGS_OLD = [
+#     [(0, 1), (1, 1), (2, 3)],
+#     [(0, 2), (1, 2)],
+#     [(0, 3), (1, 3)],
+#     [(0, 0)]
+# ]
 
 # Delimiter character of the clusters_file
 DELIMITER = '\t'
@@ -139,6 +149,10 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
     sonespases = sizes.get(sonespases_cluster_id)
     aquas = total - sonespases
 
+    # # Order sizes dict by its values
+    # sorted_sizes = sorted(sizes.items(), key=lambda kv: kv[1])
+    # sorted_dict = collections.OrderedDict(sorted_sizes)
+
     # Calculate picking percentages per cluster
     sonespases_global_percentage = SONESPASES_REPRESENTATIVENESS
     aquas_global_percentage = 1 - sonespases_global_percentage
@@ -147,7 +161,7 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
         if cluster == sonespases_cluster_id:
             percentage = sonespases_global_percentage
         else:
-            percentage = size / aquas * aquas_global_percentage
+            percentage = (size / aquas) * aquas_global_percentage
         percentages.update({cluster: percentage})
 
     # The tracking object is a list of tuples (file_to_copy, destination_dir)
@@ -156,31 +170,40 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
     # Auxiliary funcions
     # ==================
 
-    def pick_documents(bunch_type: str) -> List[str]:
-        '''Pick a bunch of documents regarding the percentage for each
-        different cluster.'''
+    def pick_all_documents() -> List[str]:
+        '''Pick all the needed documents for the experiment regarding the
+        amount of them for each cluster.'''
         picked_docs = list()
         for cluster, docs in spool.items():
-            percentage = percentages[cluster]
-
-            # Pick documents and remove them from the spool
             random.seed(SEED)
-            picked_docs.extend(random.sample(docs, round(
-                BUNCHES[bunch_type]['docs']*percentage)))
+            units = round(TOTAL_PICKINGS * percentages[cluster])
+            sample = random.sample(docs, k=units)
+            picked_docs.extend(sample)
             [docs.remove(doc) for docs in spool.values()
                 for doc in docs if doc in picked_docs]
+        return picked_docs
 
-        # Check the difference (because in training bunch only 24 out of 25 are selected)
-        difference = len(picked_docs) - BUNCHES[bunch_type]['docs']
+    def pick_bunch(bunch_type: str, number_of_discards=0) -> List[str]:
+        '''Pick a bunch of documents regarding the percentage for each
+        different cluster and remove them from the global picked spool.'''
+        bunch_amount = BUNCHES[bunch_type]['docs'] - number_of_discards
+        print('current bunch:', bunch_amount)
+        bunch = list()
+        for cluster, percentage in percentages.items():
+            random.seed(SEED)
+            units = round(bunch_amount * percentage)
+            bunch.extend(random.sample(picked_spool, units))
+            [picked_spool.remove(docs) for docs in picked_spool if docs in bunch]
+
+        # Check the difference, because in training bunch only 24 (out of 25) are selected
+        difference = len(bunch) - bunch_amount
         if difference == -1:
             random.seed(SEED)
-            picked_docs.extend(random.sample(docs, 1))
-            [docs.remove(doc) for docs in spool.values()
-                for doc in docs if doc in picked_docs]
-        elif difference == 1:
-            picked_docs.pop()
+            units = 1
+            bunch.extend(random.sample(picked_spool, units))
+            [picked_spool.remove(docs) for docs in picked_spool if docs in bunch]
 
-        return picked_docs
+        return bunch
 
     def write_to_disk_function():
         '''Create the needed directory tree and copy files to destinations.'''
@@ -202,17 +225,15 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
     def testing_printings():
         '''Testing - Comment or uncomment the lines to output some stats.'''
         # print(distributions)
-
         [print(root, len(files))
             for root, dirs, files in os.walk(ANNOTATORS['root_dir'])]
-
-        print('Unused documents:', sum([len(docs)
-                                        for cluster, docs in spool.items()]))
-
+        print('Sum of percentages:', sum([p for p in percentages.values()]))
+        print('Total documents:', total)
+        unused = sum([len(docs) for cluster, docs in spool.items()])
+        print('Unused documents:', unused)
         destinations = [dst for doc, dst in distributions]
         print('Total ann subdirs:', len(set(destinations)))
-
-        print('Total number of annotations:', len(distributions))
+        print('Total distributed:', len(distributions))
 
         # Distinct documents to annotate
         regex = r'(sonespases_)?(\d+)(\.utf8)?\.txt'
@@ -220,8 +241,8 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
         filenames = re.findall(pattern, str(distributions))
         distinct_annotations = len(set(filenames))
         print('Number of distinct annotations:', distinct_annotations)
-
-        print('Sum of percentages:', sum([p for p in percentages.values()]))
+        print('Remaining docs in picked spool:', picked_spool)
+        
 
     # Functions for each type of bunch
     # ================================
@@ -229,7 +250,7 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
     def training_bunch(dirname: str):
         '''Assign exactly the same documents to each annotator training directory.'''
         # Pick the documents
-        training_docs = pick_documents('training')
+        training_docs = pick_bunch('training')
 
         # Add the picked docs to the distributions object
         for doc in training_docs:
@@ -242,7 +263,7 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
         '''Assign a different bunch of documents to each annotator regular directory.'''
         for annotator in annotators:
             # Pick the documents
-            regular_docs = pick_documents('regular')
+            regular_docs = pick_bunch('regular')
 
             # Add the picked docs to the distributions object
             dst = os.path.join(ANNOTATORS["root_dir"], annotator, regular_dir)
@@ -250,43 +271,52 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
                 src = os.path.join(corpus_dir, doc)
                 distributions.append((src, dst))
 
-    def audit_bunch(audit_dir: str):
+    def audit_bunch(audit_dir: str, overlappings_list: List[List[Tuple[int, int]]]):
         '''Assign a bunch of documents to each annotator, but some of the
         documents are repeated (overlapped).'''
         for (ann_index, annotator) in enumerate(annotators):
-            # Pick the documents
-            audit_docs = pick_documents('audit')
 
             # Step 1: Remove as many documents as ann_index appear in the
             # AUDIT_OVERLAPPINGS, in order to make space for the further
             # overlappings, maintaining constant the bunch of docs per
             # directory.
-            number_of_docs_to_remove = utils.count_occurrences_in_list_of_list_of_tuples(
-                AUDIT_OVERLAPPINGS, ann_index)
-            [audit_docs.pop() for i in range(number_of_docs_to_remove)]
+            number_of_discards = utils.count_element_in_list_of_tuples(
+                overlappings_list, ann_index)
 
-            # Step 2: Add the bunch of docs to this annotator
+            # Step 2: Pick the audit docs
+            audit_docs = pick_bunch('audit', number_of_discards)
+
+            # Step 3: Add the bunch of docs to this annotator
             dst = os.path.join(ANNOTATORS["root_dir"], annotator, audit_dir)
             for doc in audit_docs:
                 src = os.path.join(corpus_dir, doc)
                 distributions.append((src, dst))
 
-            # Step 3: Duplicate the documents defined in AUDIT_OVERLAPPINGS
-            # for this ann_index annotator (0, 1, 2 or 3)
-            for ann_overlapping in AUDIT_OVERLAPPINGS[ann_index]:
-                source_doc = os.path.join(
-                    ANNOTATORS["root_dir"], annotator, audit_dir, audit_docs[ann_overlapping[0]])
-                target_ann = os.path.join(
-                    ANNOTATORS["root_dir"], annotators[ann_overlapping[1]], audit_dir)
-                distributions.append((source_doc, target_ann))
+            # Step 4: Copy the next doc from src_ann to dst_ann
+            for map_index, (src_ann, dst_ann) in enumerate(overlappings_list):
+                if src_ann == ann_index:
+                    src_doc = os.path.join(ANNOTATORS["root_dir"], annotator, audit_dir, audit_docs[map_index])
+                    dst_ann = os.path.join(ANNOTATORS["root_dir"], annotators[dst_ann], audit_dir)
+                    distributions.append((src_doc, dst_ann))
 
-    # Execution of ALL bunches (using list comprehensions)
+    # -------------------------------------------------------------------------
+
+    picked_spool = pick_all_documents()
+
+    # Execution of the bunches (using list comprehensions)
     # ====================================================
 
-    [training_bunch(bunch_dir)
-        for bunch_dir in BUNCHES['training']['dirs']]
+    # Training
+    [training_bunch(bunch_dir) for bunch_dir in BUNCHES['training']['dirs']]
+    
+    # Regular
     [regular_bunch(bunch_dir) for bunch_dir in BUNCHES['regular']['dirs']]
-    [audit_bunch(bunch_dir) for bunch_dir in BUNCHES['audit']['dirs']]
+    
+    # Audit. First, get each overlappings list (copy certain doc from one annotator to another)
+    for index, bunch_dir in enumerate(BUNCHES['audit']['dirs']):
+        for overlappings_list in islice(cycle(intertagger_seq), index, index+1):
+            audit_bunch(bunch_dir, overlappings_list)
+
 
     # Execution ONLY of an specific type of bunch
     # =============================================

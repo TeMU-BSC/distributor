@@ -101,15 +101,14 @@ def get_key_by_substr_in_values_lists(
     return found_key
 
 
-def count_occurrences_in_list_of_list_of_tuples(
-        outter_list: List[List[tuple]], element) -> int:
+def count_element_in_list_of_tuples(
+        list_of_tuples: List[Tuple[int, int]], element) -> int:
     '''Return the number of times that an element is present in the
     outter_list, that is a list of lists of tuples (src, tgt). For the IctusNET
     project, this is extremely useful in order to find out how many times an
     specific annotator is a target for copying an overlapped document in an
     audit run type.'''
     target_annotators = list()
-    for inner_list in outter_list:
-        for (src, tgt) in inner_list:
-            target_annotators.append(tgt)
+    for (src, tgt) in list_of_tuples:
+        target_annotators.append(tgt)
     return Counter(target_annotators)[element]
