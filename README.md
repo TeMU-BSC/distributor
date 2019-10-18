@@ -9,51 +9,54 @@ command-line script made with [Click](https://click.palletsprojects.com/en/7.x/)
 The documents are not moved to the new nested directories, they are copied
 instead, preserving the original documents directory.
 
-## Requirements:
+## System requirements
+
 - python3
-- pip (or pip3)
+- pip
+- pipenv - a wonderful package dependency managing tool
 
-## Set up the environment:
+To ensure that your system has python3 and pip installed and updated, run the following commands:
+```bash
+$ sudo apt update && sudo apt install -y python3 && python3 --version
+$ pip install --user --upgrade pip && pip --version
+$ pip install --user --upgrade pipenv && pipenv --version
+```
+## Set up the environment
 
-- Clone the repo and enter the project directory (`IctusNET` by default)
+- Clone this repo and enter the project directory (`IctusNET` by default):
 ```bash
 $ git clone https://github.com/TeMU-BSC/IctusNET.git
 $ cd IctusNET
 ```
 
-- Install pipenv - a wonderful package dependency managing tool
+- Install the required dependencies (also for development) listed in `Pipfile`:
 ```bash
-$ pip install --user --upgrade pipenv
+$ pipenv install --dev
 ```
 
-- Install required dependencies listed in `Pipfile`
-```bash
-$ pipenv install
-```
-
-- Activate the virtual environment using pipenv
+- Activate the virtual environment:
 ```bash
 $ pipenv shell
 ```
 
-## Run the script:
+## Run the script
 
-- Example for creating empty files in a dummy_docs directory
+- Example of creating empty files from the TSV clustering file to just test the script:
 ```bash
 $ python ictusnet.py --clusters-file labels_sup_umap_emb_8.tsv --test-mode
 ```
 
-- Example for executing the real distribution of the documents
+- Example of running the real distribution of the documents:
 ```bash
-$ python ictusnet.py --clusters-file labels_sup_umap_emb_8.tsv --corpus-dir /path/to/corpus/
+$ python ictusnet.py --clusters-file labels_sup_umap_emb_8.tsv --corpus-dir /path/to/real/corpus/ --annotators carmen eugenia isabel victoria
 ```
 
-## Test:
+## Tests
 ```
 $ pytest
 ```
 
-## Usage syntax:
+## Usage syntax options
 ```bash
 $ python ictusnet.py --help
 ```
