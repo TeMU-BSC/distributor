@@ -12,14 +12,14 @@ instead, preserving the original documents directory.
 ## System requirements
 
 - python3
-- pip
+- pip3
 - pipenv - a wonderful package dependency managing tool
 
 To ensure that your system has python3 and pip installed and updated, run the following commands:
 ```bash
-$ sudo apt update && sudo apt install -y python3 && python3 --version
-$ pip install --user --upgrade pip && pip --version
-$ pip install --user --upgrade pipenv && pipenv --version
+$ sudo apt update && sudo apt install -y python3 python3-pip && python3 --version
+$ pip3 install --user --upgrade pip && pip --version
+$ pip3 install --user --upgrade pipenv && pipenv --version
 ```
 ## Set up the environment
 
