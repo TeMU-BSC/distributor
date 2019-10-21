@@ -115,64 +115,6 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
     regarding the source (SonEspases and AQuAS, which has subclusters).
     '''
 
-    # Variables initialization
-    # ========================
-
-    # Result accumulative list of (src_file, dst_dir) that will be written to disk
-    distributions = list()
-
-    # Load all documents in a {cluster: docs} dictionary
-    delimiter = utils.get_delimiter(clusters_file)
-    all_clustered_docs = utils.get_clustered_dict(clusters_file, delimiter)
-
-    # Calculate document amounts
-    sizes = {cluster: len(docs)
-             for cluster, docs in all_clustered_docs.items()}
-    total = sum(sizes.values())
-    sonespases_cluster_id = utils.get_key_by_substr_in_values(
-        all_clustered_docs, 'sonespases')
-    sonespases = sizes.get(sonespases_cluster_id)
-    aquas = total - sonespases
-
-    # Order dict by its values, return a list of tuples
-    sizes = sorted(sizes.items(), key=lambda kv: kv[1])
-
-    # Calculate picking percentages per clusterANNOTATORS['default']
-    aquas_global_percentage = 1 - SONESPASES_REPRESENTATIVENESS
-    percentages = dict()
-    for cluster, size in sizes:
-        if cluster == sonespases_cluster_id:
-            percentage = SONESPASES_REPRESENTATIVENESS
-        else:
-            percentage = (size / aquas) * aquas_global_percentage
-        percentages.update({cluster: percentage})
-
-    # Documents overlapping map. This is a list of lists, which each sublist is
-    # made of tuples (annotator_to_copy_from, annotator_to_paste_to).
-    comb_list = list(combinations(ANNOTATORS['default'], 2))
-    intertagging_seq = [list(islice(cycle(comb_list), i, i + OVERLAPPINGS_PER_AUDIT))
-                        for i in range(0, 5, 2)]
-
-    # Calculate the total amount of pickings
-    pickings = [bunch['amount'] * len(bunch['dirs']) * len(annotators) for bunch in BUNCHES]
-    total_pickings = sum(pickings)
-
-    # Pick all documents ensuring the percentages
-    spool = list()
-    for cluster, docs in all_clustered_docs.items():
-        random.seed(SEED)
-        units = round(total_pickings * percentages[cluster])
-        sample = random.sample(docs, k=units)
-        spool.extend(sample)
-        for picked_doc in sample:
-            docs.remove(picked_doc)
-    diff = total_pickings - len(spool)
-    less_representative_cluster_id = sizes[0][0]
-    less_representative_cluster_docs = all_clustered_docs[less_representative_cluster_id]
-    random.seed(SEED)
-    extra_docs = random.sample(less_representative_cluster_docs, diff)
-    spool.extend(extra_docs)
-
     def pick_random_bunch_se(amount: int) -> List[str]:
         '''Pick a bunch of random documents from the spool.'''
         random.seed(SEED)
@@ -180,9 +122,6 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
         for doc in bunch:
             spool.remove(doc)
         return bunch
-
-    # Functions for each type of bunch
-    # ================================
 
     def training_bunch(bunch_dir: str) -> List[Tuple[str, str]]:
         '''Assign exactly the same documents to each annotator.'''
@@ -194,7 +133,8 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
             src = os.path.join(corpus_dir, doc)
             # Repeat the same destination for every annotator
             for annotator in annotators:
-                dst = os.path.join(ANNOTATORS["root_dir"], annotator, bunch_dir)
+                dst = os.path.join(
+                    ANNOTATORS["root_dir"], annotator, bunch_dir)
                 distributions.append((src, dst))
 
     def regular_bunch(bunch_dir: str) -> List[Tuple[str, str]]:
@@ -237,27 +177,9 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
             for index, (src, dst) in enumerate(overlappings_list):
                 if annotator == src:
                     doc_to_copy = os.path.join(corpus_dir, picked_docs[index])
-                    destination = os.path.join(ANNOTATORS["root_dir"], dst, bunch_dir)
+                    destination = os.path.join(
+                        ANNOTATORS["root_dir"], dst, bunch_dir)
                     distributions.append((doc_to_copy, destination))
-
-    # -------------------------------------------------------------------------
-
-    # Execution of all the bunches pickings
-    # (using list comprehensions but not returning any value from them)
-    for bunch in BUNCHES:
-        [training_bunch(dirname) for dirname in bunch['dirs'] if bunch['type'] == 'training']
-        [regular_bunch(dirname) for dirname in bunch['dirs'] if bunch['type'] == 'regular']
-        # The audit bunch function needs the overlapping list to duplicate documents accordingly
-        [audit_bunch(dirname, overlappings_list) for i, dirname in enumerate(bunch['dirs'])
-         if bunch['type'] == 'audit'
-         for overlappings_list in islice(cycle(intertagging_seq), i, i+1)]
-
-    # Flags checking before writing to disk
-    if create_empty_corpus:
-        utils.create_empty_files_from_csv_se(TEST_DIR, clusters_file, delimiter)
-    if backup:
-        backup_dir = f'{corpus_dir}_backup'
-        utils.create_docs_backup_se(corpus_dir, backup_dir)
 
     def write_to_disk():
         '''Copy files from source path to destinations, creating the needed
@@ -266,14 +188,11 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
             if not os.path.exists(dst):
                 os.makedirs(dst)
             shutil.copy2(src, dst)
-    write_to_disk()
 
     def testing_printings():
         '''Testing - Comment or uncomment the lines to output some stats.'''
-        # print(distributions)
         [print(root, len(files))
          for root, dirs, files in os.walk(ANNOTATORS['root_dir'])]
-        print('Sum of percentages:', sum(percentages.values()))
         print('Number of annotations:', len(distributions))
 
         # Distinct documents to annotate
@@ -281,7 +200,89 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
         pattern = re.compile(regex)
         filenames = re.findall(pattern, str(distributions))
         print('Number of distinct annotations:', len(set(filenames)))
+
+    # Accumulative distributions list of tuples (src_file, dst_dir), to later write to disk
+    distributions = list()
+
+    # Load all documents from clustering TSV file in a dictionary {cluster: docs}
+    delimiter = utils.get_delimiter(clusters_file)
+    all_clustered_docs = utils.get_clustered_dict(clusters_file, delimiter)
+
+    # Calculate document amounts
+    sizes = {cluster: len(docs)
+             for cluster, docs in all_clustered_docs.items()}
+    total_amount = sum(sizes.values())
+    sonespases_cluster_id = utils.get_key_by_substr_in_values(
+        all_clustered_docs, 'sonespases')
+    sonespases_amount = sizes.get(sonespases_cluster_id)
+    aquas_amount = total_amount - sonespases_amount
+
+    # Order dict by its values, return a list of tuples
+    sizes = sorted(sizes.items(), key=lambda kv: kv[1])
+
+    # Calculate picking percentages per clusterANNOTATORS['default']
+    aquas_global_percentage = 1 - SONESPASES_REPRESENTATIVENESS
+    percentages = dict()
+    for cluster, size in sizes:
+        if cluster == sonespases_cluster_id:
+            percentage = SONESPASES_REPRESENTATIVENESS
+        else:
+            percentage = (size / aquas_amount) * aquas_global_percentage
+        percentages.update({cluster: percentage})
+
+    # Documents overlapping map. This is a list of lists, which each sublist is
+    # made of tuples (annotator_to_copy_from, annotator_to_paste_to).
+    comb_list = list(combinations(ANNOTATORS['default'], 2))
+    intertagging_seq = [list(islice(cycle(comb_list), i, i + OVERLAPPINGS_PER_AUDIT))
+                        for i in range(0, 5, 2)]
+
+    # Calculate the total amount of pickings
+    pickings = [bunch['amount'] *
+                len(bunch['dirs']) * len(annotators) for bunch in BUNCHES]
+    total_pickings = sum(pickings)
+
+    # Pick all documents ensuring the percentages
+    spool = list()
+    for cluster, docs in all_clustered_docs.items():
+        random.seed(SEED)
+        units = round(total_pickings * percentages[cluster])
+        sample = random.sample(docs, k=units)
+        spool.extend(sample)
+        for picked_doc in sample:
+            docs.remove(picked_doc)
+
+    # Make sure that the previous rounding effect doesn't affect the final length of spool
+    diff = total_pickings - len(spool)
+    less_representative_cluster_id = sizes[0][0]
+    less_representative_cluster_docs = all_clustered_docs[less_representative_cluster_id]
+    random.seed(SEED)
+    extra_docs = random.sample(less_representative_cluster_docs, diff)
+    spool.extend(extra_docs)
+
+    # Execution of all the bunches pickings
+    # (using list comprehensions as shortcuts, not returning any value from them)
+    for bunch in BUNCHES:
+        [training_bunch(dirname) for dirname in bunch['dirs']
+         if bunch['type'] == 'training']
+        [regular_bunch(dirname) for dirname in bunch['dirs']
+         if bunch['type'] == 'regular']
+        # The audit bunch function needs the overlapping list to duplicate documents accordingly
+        [audit_bunch(dirname, overlappings_list) for i, dirname in enumerate(bunch['dirs'])
+         if bunch['type'] == 'audit'
+         for overlappings_list in islice(cycle(intertagging_seq), i, i+1)]
+
+    # Flags checking before writing to disk
+    if create_empty_corpus:
+        utils.create_empty_files_from_csv_se(
+            TEST_DIR, clusters_file, delimiter)
+    if backup:
+        backup_dir = f'{corpus_dir}_backup'
+        utils.create_docs_backup_se(corpus_dir, backup_dir)
+    write_to_disk()
+
+    # Printings for testing
     testing_printings()
+
 
 # -----------------------------------------------------------------------------
 
