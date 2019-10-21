@@ -69,11 +69,13 @@ SEED = 777
 # Directory to put some empty files for testing
 TEST_DIR = 'empty_corpus'
 
-# SonEspases is the only balearic representative in the documents spool
-# CATALONIA_POPULATION = 7.6  # millions of people in 2018
-# BALEARIC_ISLANDS_POPULATION = 1.150  # millions of people in 2017
-# SONESPASES_REPRESENTATIVENESS = BALEARIC_ISLANDS_POPULATION / CATALONIA_POPULATION
-SONESPASES_REPRESENTATIVENESS = 0.13
+# Because SonEspases Hospital is the only balearic representative in the documents spool,
+# we considered calculating a fixed percentage for those documents, based on regional
+# populations (Wikipedia, on 21th Oct 2019).
+CATALONIA_POPULATION = 7543825
+BALEARIC_POPULATION = 1150839
+TOTAL_POPULTAION = CATALONIA_POPULATION + BALEARIC_POPULATION
+SONESPASES_PERCENTAGE = round(BALEARIC_POPULATION / TOTAL_POPULTAION, 2)  # 0.13
 
 # -----------------------------------------------------------------------------
 
@@ -189,17 +191,19 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
                 os.makedirs(dst)
             shutil.copy2(src, dst)
 
-    def testing_printings():
+    def stdout_printings():
         '''Testing - Comment or uncomment the lines to output some stats.'''
         [print(root, len(files))
          for root, dirs, files in os.walk(ANNOTATORS['root_dir'])]
-        print('Number of annotations:', len(distributions))
+        print('Initial pickings:', total_pickings)
+        print('Documents written to disk:', len(distributions))
 
         # Distinct documents to annotate
         regex = r'(sonespases_)?(\d+)(\.utf8)?\.txt'
         pattern = re.compile(regex)
         filenames = re.findall(pattern, str(distributions))
-        print('Number of distinct annotations:', len(set(filenames)))
+        print('Distinct annotations:', len(set(filenames)))
+        print('Remaining spool:', len(spool))
 
     # Accumulative distributions list of tuples (src_file, dst_dir), to later write to disk
     distributions = list()
@@ -221,11 +225,11 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
     sizes = sorted(sizes.items(), key=lambda kv: kv[1])
 
     # Calculate picking percentages per clusterANNOTATORS['default']
-    aquas_global_percentage = 1 - SONESPASES_REPRESENTATIVENESS
+    aquas_global_percentage = 1 - SONESPASES_PERCENTAGE
     percentages = dict()
     for cluster, size in sizes:
         if cluster == sonespases_cluster_id:
-            percentage = SONESPASES_REPRESENTATIVENESS
+            percentage = SONESPASES_PERCENTAGE
         else:
             percentage = (size / aquas_amount) * aquas_global_percentage
         percentages.update({cluster: percentage})
@@ -237,8 +241,15 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
                         for i in range(0, 5, 2)]
 
     # Calculate the total amount of pickings
-    pickings = [bunch['amount'] *
-                len(bunch['dirs']) * len(annotators) for bunch in BUNCHES]
+    pickings = list()
+    for bunch in BUNCHES:
+        if bunch['type'] == 'training':
+            pick = bunch['amount']
+        if bunch['type'] == 'regular':
+            pick = bunch['amount'] * len(annotators) * len(bunch['dirs'])
+        if bunch['type'] == 'audit':
+            pick = (bunch['amount'] * len(annotators) - OVERLAPPINGS_PER_AUDIT) * len(bunch['dirs'])
+        pickings.append(pick)
     total_pickings = sum(pickings)
 
     # Pick all documents ensuring the percentages
@@ -251,13 +262,13 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
         for picked_doc in sample:
             docs.remove(picked_doc)
 
-    # Make sure that the previous rounding effect doesn't affect the final length of spool
-    diff = total_pickings - len(spool)
-    less_representative_cluster_id = sizes[0][0]
-    less_representative_cluster_docs = all_clustered_docs[less_representative_cluster_id]
-    random.seed(SEED)
-    extra_docs = random.sample(less_representative_cluster_docs, diff)
-    spool.extend(extra_docs)
+    # # Make sure that the previous rounding effect doesn't affect the final length of spool
+    # diff = total_pickings - len(spool)
+    # less_representative_cluster_id = sizes[0][0]
+    # less_representative_cluster_docs = all_clustered_docs[less_representative_cluster_id]
+    # random.seed(SEED)
+    # extra_docs = random.sample(less_representative_cluster_docs, diff)
+    # spool.extend(extra_docs)
 
     # Execution of all the bunches pickings
     # (using list comprehensions as shortcuts, not returning any value from them)
@@ -280,8 +291,8 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
         utils.create_docs_backup_se(corpus_dir, backup_dir)
     write_to_disk()
 
-    # Printings for testing
-    testing_printings()
+    # Printings to give feedback to the user of the script
+    stdout_printings()
 
 
 # -----------------------------------------------------------------------------
