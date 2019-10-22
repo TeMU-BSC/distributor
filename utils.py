@@ -13,7 +13,6 @@ import csv
 import os
 import shutil
 from typing import Dict, List, Tuple
-from collections import Counter
 
 
 def get_delimiter(csv_file: str) -> str:
@@ -24,16 +23,8 @@ def get_delimiter(csv_file: str) -> str:
     return dialect.delimiter
 
 
-def create_empty_files_se(dirname: str, total_dummy_docs: int, extension: str):
-    '''Create some empty files with incremental numeric filenames in the given
-    new directory name.'''
-    if not os.path.exists(dirname):
-        os.makedirs(dirname)
-    for filename in range(1, total_dummy_docs + 1):
-        open(f'{dirname}/{filename}{extension}', 'w')
-
-
-def create_empty_files_from_csv_se(dirname: str, csv_file: str, delimiter: str):
+def create_empty_files_from_csv_se(
+        dirname: str, csv_file: str, delimiter: str):
     '''Create as many empty files as there are tsv_file rows inside dirname.'''
     if not os.path.exists(dirname):
         os.makedirs(dirname)
@@ -43,14 +34,8 @@ def create_empty_files_from_csv_se(dirname: str, csv_file: str, delimiter: str):
             open(f"{dirname}/{row['file']}", 'w')
 
 
-def create_docs_backup_se(source_dir: str, backup_dir: str):
-    '''Create a complete backup of the given source directory into a new
-    backup_dir, only if backup_dir doesn't exist yet.'''
-    if not os.path.exists(backup_dir):
-        shutil.copytree(source_dir, backup_dir)
-
-
-def get_clustered_dict(clusters_file: str, delimiter: str) -> Dict[str, List[str]]:
+def get_clustered_dict(
+        clusters_file: str, delimiter: str) -> Dict[str, List[str]]:
     '''Return a dictionary with the clusters id's as keys and the list of
     files as values.'''
     docs_clusters_spool = dict()
@@ -74,3 +59,12 @@ def get_key_by_substr_in_values(
     if len(set(found_keys)) == 1:
         found_key = found_keys[0]
     return found_key
+
+
+def write_to_disk(distributions: List[Tuple[str, str]]):
+    '''Copy files from source path to destinations, creating the needed
+    directory tree.'''
+    for (src, dst) in distributions:
+        if not os.path.exists(dst):
+            os.makedirs(dst)
+        shutil.copy2(src, dst)

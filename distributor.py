@@ -1,20 +1,28 @@
 '''
 Description: Script that distributes automatically the documents to some
 annotators.
-Project: IctusNET
+
 Author of this script:
     - Alejandro Asensio <alejandro.asensio@bsc.es>
+
 Credits to:
     - Ankush Rana <ankush.rana@bsc.es> for the initial 10-overlappings
       algorithm, and
     - Aitor Gonzalez <aitor.gonzalez@bsc.es> for the follow-up of
-      the entire IctusNET project.
+      the entire ICTUSnet project.
 
 TODO
     Two modes: (i) Individual mode (default) distributes the
     documents ONLY for a concrete run, specificating the type of run:
     `training`, `regular` or `audit`; (ii) Complete mode distributes massively
-    all the documents in the given corpus_dir to some given annotators.
+    all the documents in the given corpus to some given annotators.
+
+# @click.option('--complete-distribution', is_flag=True,
+#               help="Distribute the documents massively for all bunches in one single execution.")
+# @click.option('--bunch-type', prompt=True,
+#               type=click.Choice(['training', 'regular', 'audit'], case_sensitive=False))
+# @click.option('--bunch-dir', prompt='New directory name for the run (e.g. `01`)',
+#               help='Name for the new directory where the documents are going to be copied.')
 
 '''
 
@@ -23,7 +31,6 @@ from itertools import combinations, cycle, islice
 import os
 import re
 import random
-import shutil
 from typing import List, Tuple
 
 import click
@@ -34,13 +41,9 @@ import utils
 # pylint: disable=expression-not-assigned
 # pylint: disable=no-value-for-parameter
 
+# -----------------------------------------------------------------------------
 # CONSTANTS (modify them to adjust this script)
-# =============================================
-
-ANNOTATORS = {
-    'root_dir': 'annotators',
-    'default': ('A', 'B', 'C', 'D'),
-}
+# -----------------------------------------------------------------------------
 
 BUNCHES = [
     {
@@ -60,7 +63,8 @@ BUNCHES = [
     }
 ]
 
-# Number of documents per audit bunch that are annotated by more than one annotator
+# Number of documents per audit bunch that are annotated by more than one
+# annotator
 OVERLAPPINGS_PER_AUDIT = 8
 
 # Seed for random reproducibility purposes (the value can be whatever integer)
@@ -69,52 +73,38 @@ SEED = 777
 # Directory to put some empty files for testing
 TEST_DIR = 'empty_corpus'
 
+# Directory to put each annotator subdirectory
+ANN_DIR = 'annotators'
+
 # Because SonEspases Hospital is the only balearic representative in the documents spool,
 # we considered calculating a fixed percentage for those documents, based on regional
 # populations (Wikipedia, on 21th Oct 2019).
 CATALONIA_POPULATION = 7543825
 BALEARIC_POPULATION = 1150839
 TOTAL_POPULTAION = CATALONIA_POPULATION + BALEARIC_POPULATION
-SONESPASES_PERCENTAGE = round(BALEARIC_POPULATION / TOTAL_POPULTAION, 2)  # 0.13
+SONESPASES_PERCENTAGE = round(
+    BALEARIC_POPULATION / TOTAL_POPULTAION, 2)  # 0.13
 
 # -----------------------------------------------------------------------------
 
 
 @click.command()
-@click.option('--clusters-file',
-              help='''TSV file with `file\tcluster` header. It can have any
-                   delimiter (commas for CSV or spaces for TXT).''')
-@click.option('--corpus-dir', default=TEST_DIR,
-              help='Directory that contains EXCLUSIVELY the plain text documents to annotate.')
-@click.option('--annotators', nargs=4, type=click.Tuple([str, str, str, str]),
-              default=ANNOTATORS['default'],
-              help='Names of the 4 annotators separated by whitespace.')
-@click.option('--backup', is_flag=True,
-              help='Create a backup of the `--corpus-dir`.')
-@click.option('--create-empty-corpus', is_flag=True,
-              help='Create empty files reading the CSV content to test this script.')
-# @click.option('--complete-distribution', is_flag=True,
-#               help="Distribute the documents massively for all bunches in one single execution.")
-# @click.option('--bunch-type', prompt=True,
-#               type=click.Choice(['training', 'regular', 'audit'], case_sensitive=False))
-# @click.option('--bunch-dir', prompt='New directory name for the run (e.g. `01`)',
-#               help='Name for the new directory where the documents are going to be copied.')
-def distribute_documents(clusters_file: str, corpus_dir: str,
-                         annotators: tuple, backup: bool, create_empty_corpus: bool):
-                         # complete_distribution: bool, bunch_type: str, bunch_dir: str
+@click.argument('clusters_file', default=None)
+@click.argument('corpus', default=None)
+@click.argument('annotators', nargs=4, default=None)
+def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str, str]):
     '''
-    Distribute plain text documents into different directories regarding the following criteria.
+    Distribute plain text documents into subdirectories following criteria
+    depending on the run types defined for the project: (i) Training type
+    assigns the exactly same amount of documents to each annotator; (ii)
+    Regular run assigns a certain bunch of documents for each annotator, being
+    all the documents different among the annotators. (iii) Audit run assigns a
+    certain bunch of documents for each annotator, overlapping some of them, so
+    some documents will be annotated more than once.
 
-    The distribution of the documents depends on the run types defined for the
-    project: (i) Training type assigns the exactly same amount of documents to
-    each annotator; (ii) Regular run assigns a certain bunch of documents for
-    each annotator, being all the documents different among the annotators.
-    (iii) Audit run assigns a certain bunch of documents for each annotator,
-    overlapping some of them, so some documents will be annotated more than
-    once.
-
-    Moreover, the pickings of the documents depend on the defined percentages
-    regarding the source (SonEspases and AQuAS, which has subclusters).
+    Moreover, the pickings of the documents depend on the percentages
+    calculated regarding the representativeness of clustered SonEspases and
+    AQuAS documents.
     '''
 
     def pick_random_bunch_se(amount: int) -> List[str]:
@@ -132,11 +122,11 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
                 amount = bunch['amount']
         picked_docs = pick_random_bunch_se(amount)
         for doc in picked_docs:
-            src = os.path.join(corpus_dir, doc)
+            src = os.path.join(corpus, doc)
             # Repeat the same destination for every annotator
             for annotator in annotators:
                 dst = os.path.join(
-                    ANNOTATORS["root_dir"], annotator, bunch_dir)
+                    ANN_DIR, annotator, bunch_dir)
                 distributions.append((src, dst))
 
     def regular_bunch(bunch_dir: str) -> List[Tuple[str, str]]:
@@ -147,13 +137,15 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
                 amount = bunch['amount']
         for annotator in annotators:
             picked_docs = pick_random_bunch_se(amount)
-            dst = os.path.join(ANNOTATORS["root_dir"], annotator, bunch_dir)
-            # Assign different pickings with the same amount of docs to each annotator
+            dst = os.path.join(ANN_DIR, annotator, bunch_dir)
+            # Assign different pickings with the same amount of docs to each
+            # annotator
             for doc in picked_docs:
-                src = os.path.join(corpus_dir, doc)
+                src = os.path.join(corpus, doc)
                 distributions.append((src, dst))
 
-    def audit_bunch(bunch_dir: str, overlappings_list: List[List[Tuple[str, str]]]):
+    def audit_bunch(
+            bunch_dir: str, overlappings_list: List[List[Tuple[str, str]]]):
         '''Assign a bunch of documents to each annotator, but some of the
         documents are repeated (overlapped).'''
         for annotator in annotators:
@@ -165,50 +157,31 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
             target_annotators = [tgt for (src, tgt) in overlappings_list]
             discards = Counter(target_annotators)[annotator]
 
-            # Step 2: Pick the audit docs and add the bunch of docs to this annotator
+            # Step 2: Pick the audit docs and add the bunch of docs to this
+            # annotator
             for bunch in BUNCHES:
                 if bunch['type'] == 'audit':
                     amount = bunch['amount'] - discards
             picked_docs = pick_random_bunch_se(amount)
-            srcs = [os.path.join(corpus_dir, doc) for doc in picked_docs]
-            dst = os.path.join(ANNOTATORS["root_dir"], annotator, bunch_dir)
+            srcs = [os.path.join(corpus, doc) for doc in picked_docs]
+            dst = os.path.join(ANN_DIR, annotator, bunch_dir)
             for src in srcs:
                 distributions.append((src, dst))
 
             # Step 3: Duplicate some docs
             for index, (src, dst) in enumerate(overlappings_list):
                 if annotator == src:
-                    doc_to_copy = os.path.join(corpus_dir, picked_docs[index])
+                    doc_to_copy = os.path.join(corpus, picked_docs[index])
                     destination = os.path.join(
-                        ANNOTATORS["root_dir"], dst, bunch_dir)
+                        ANN_DIR, dst, bunch_dir)
                     distributions.append((doc_to_copy, destination))
 
-    def write_to_disk():
-        '''Copy files from source path to destinations, creating the needed
-        directory tree.'''
-        for (src, dst) in distributions:
-            if not os.path.exists(dst):
-                os.makedirs(dst)
-            shutil.copy2(src, dst)
-
-    def stdout_printings():
-        '''Testing - Comment or uncomment the lines to output some stats.'''
-        [print(root, len(files))
-         for root, dirs, files in os.walk(ANNOTATORS['root_dir'])]
-        print('Initial pickings:', total_pickings)
-        print('Documents written to disk:', len(distributions))
-
-        # Distinct documents to annotate
-        regex = r'(sonespases_)?(\d+)(\.utf8)?\.txt'
-        pattern = re.compile(regex)
-        filenames = re.findall(pattern, str(distributions))
-        print('Distinct annotations:', len(set(filenames)))
-        print('Remaining spool:', len(spool))
-
-    # Accumulative distributions list of tuples (src_file, dst_dir), to later write to disk
+    # Accumulative distributions list of tuples (src_file, dst_dir), to later
+    # write to disk
     distributions = list()
 
-    # Load all documents from clustering TSV file in a dictionary {cluster: docs}
+    # Load all documents from clustering TSV file in a dictionary {cluster:
+    # docs}
     delimiter = utils.get_delimiter(clusters_file)
     all_clustered_docs = utils.get_clustered_dict(clusters_file, delimiter)
 
@@ -248,7 +221,8 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
         if bunch['type'] == 'regular':
             pick = bunch['amount'] * len(annotators) * len(bunch['dirs'])
         if bunch['type'] == 'audit':
-            pick = (bunch['amount'] * len(annotators) - OVERLAPPINGS_PER_AUDIT) * len(bunch['dirs'])
+            pick = (bunch['amount'] * len(annotators) -
+                    OVERLAPPINGS_PER_AUDIT) * len(bunch['dirs'])
         pickings.append(pick)
     total_pickings = sum(pickings)
 
@@ -262,14 +236,6 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
         for picked_doc in sample:
             docs.remove(picked_doc)
 
-    # # Make sure that the previous rounding effect doesn't affect the final length of spool
-    # diff = total_pickings - len(spool)
-    # less_representative_cluster_id = sizes[0][0]
-    # less_representative_cluster_docs = all_clustered_docs[less_representative_cluster_id]
-    # random.seed(SEED)
-    # extra_docs = random.sample(less_representative_cluster_docs, diff)
-    # spool.extend(extra_docs)
-
     # Execution of all the bunches pickings
     # (using list comprehensions as shortcuts, not returning any value from them)
     for bunch in BUNCHES:
@@ -277,25 +243,34 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
          if bunch['type'] == 'training']
         [regular_bunch(dirname) for dirname in bunch['dirs']
          if bunch['type'] == 'regular']
-        # The audit bunch function needs the overlapping list to duplicate documents accordingly
+        # The audit bunch function needs the overlapping list to duplicate
+        # documents accordingly
         [audit_bunch(dirname, overlappings_list) for i, dirname in enumerate(bunch['dirs'])
          if bunch['type'] == 'audit'
-         for overlappings_list in islice(cycle(intertagging_seq), i, i+1)]
+         for overlappings_list in islice(cycle(intertagging_seq), i, i + 1)]
 
     # Flags checking before writing to disk
-    if create_empty_corpus:
+    if not os.path.exists(corpus):
         utils.create_empty_files_from_csv_se(
             TEST_DIR, clusters_file, delimiter)
-    if backup:
-        backup_dir = f'{corpus_dir}_backup'
-        utils.create_docs_backup_se(corpus_dir, backup_dir)
-    write_to_disk()
+    else:
+        utils.write_to_disk(distributions)
+
+    # utils.write_to_disk(distributions)
 
     # Printings to give feedback to the user of the script
-    stdout_printings()
+    [print(root, len(files))
+     for root, dirs, files in os.walk(ANN_DIR)]
+    print('Initial pickings:', total_pickings)
+    print('Documents written to disk:', len(distributions))
 
+    # Distinct documents to annotate
+    regex = r'(sonespases_)?(\d+)(\.utf8)?\.txt'
+    pattern = re.compile(regex)
+    filenames = re.findall(pattern, str(distributions))
+    print('Distinct annotations:', len(set(filenames)))
+    print('Remaining spool:', len(spool))
 
-# -----------------------------------------------------------------------------
 
 if __name__ == '__main__':
     distribute_documents()
