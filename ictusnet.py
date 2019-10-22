@@ -224,7 +224,7 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
     # Order dict by its values, return a list of tuples
     sizes = sorted(sizes.items(), key=lambda kv: kv[1])
 
-    # Calculate picking percentages per clusterANNOTATORS['default']
+    # Calculate picking percentages per cluster
     aquas_global_percentage = 1 - SONESPASES_PERCENTAGE
     percentages = dict()
     for cluster, size in sizes:
@@ -236,7 +236,7 @@ def distribute_documents(clusters_file: str, corpus_dir: str,
 
     # Documents overlapping map. This is a list of lists, which each sublist is
     # made of tuples (annotator_to_copy_from, annotator_to_paste_to).
-    comb_list = list(combinations(ANNOTATORS['default'], 2))
+    comb_list = list(combinations(annotators, 2))
     intertagging_seq = [list(islice(cycle(comb_list), i, i + OVERLAPPINGS_PER_AUDIT))
                         for i in range(0, 5, 2)]
 
