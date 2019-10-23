@@ -28,15 +28,15 @@ The following steps are tested on **Ubuntu 18.04** operatig system.
 
 ## Requirements
 
-- python3.7
+- python3 (any subversion)
 - pip3
 - pipenv - a wonderful package dependency and virtualenv managing tool
 
 To ensure that your system has pip3 installed and updated, run the following commands:
 ```bash
-sudo apt update && sudo apt install -y python3.7 python3-pip
-python3.7 -m pip install --user --upgrade pip
-python3.7 -m pip install --user --upgrade pipenv
+sudo apt update && sudo apt install -y python3-pip
+pip3 install --user --upgrade pip
+pip3 install --user --upgrade pipenv
 ```
 
 ## Set up the environment
@@ -47,10 +47,11 @@ git clone https://github.com/TeMU-BSC/distributor.git
 cd distributor
 ```
 
-2. Install the exact version of the packages listed in `Pipfile.lock`
-(deterministic installation), including the ones for development:
+2. Install, using the system `python3` link, the exact version of the packages
+listed in `Pipfile.lock` (deterministic installation), including the ones for
+development:
 ```bash
-pipenv install --ignore-pipfile --dev
+pipenv install --three --ignore-pipfile --dev
 ```
 
 3. Activate the virtual environment:
@@ -63,14 +64,17 @@ After that, you will see `(distributor)` prepended to your prompt.
 ## Test the script
 ```bash
 pytest
+ls annotators
+rm -rf annotators empty_corpus
 ```
 
 ## Run the script
 ```bash
-rm -rf annotators empty_corpus
 python distributor.py clusters.tsv /path/to/real/corpus/ carmen eugenia isabel victoria
 ls annotators
 ```
+
+Now, the distributed files are placed in the `annotators` directory.
 
 ## Usage help
 ```
