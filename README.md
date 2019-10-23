@@ -1,6 +1,6 @@
-# ICTUSnet Annotation Documents Distribution Script
+# Distributor for Documents to Annotate
 
-This script distributes a given list of files (plain text documents) for 4
+This script distributes a given list of files (plain text documents) among 4
 annotators.
 
 It is a command-line script callable by python3 interpreter, build with
@@ -43,8 +43,8 @@ python3.7 -m pip install --user --upgrade pipenv
 
 1. Clone this repo and enter the project directory:
 ```bash
-git clone https://github.com/TeMU-BSC/docs-distributor.git
-cd docs-distributor
+git clone https://github.com/TeMU-BSC/distributor.git
+cd distributor
 ```
 
 2. **A. Deterministic:** Install the explicit version of the packages listed in `Pipfile.lock`:
@@ -62,7 +62,7 @@ pipenv install --dev
 pipenv shell
 ```
 
-After that, you will see `(docs-distributor)` prepended to your prompt.
+After that, you will see `(distributor)` prepended to your prompt.
 
 ## Test the script
 ```bash
@@ -76,9 +76,20 @@ python distributor.py clusters.tsv /path/to/real/corpus/ carmen eugenia isabel v
 ls annotators
 ```
 
-## Usage syntax options
-```bash
+## Usage help
+```
 python distributor.py --help
+Usage: distributor.py [OPTIONS] CLUSTERS_FILE CORPUS ANNOTATORS...
+
+  Distribute plain text documents into subdirectories the CONSTANTS defined
+  at the beggining of this function.
+
+  The pickings of the documents depend on the percentages calculated
+  dynamically regarding the representativeness of previously clustered
+  SonEspases and AQuAS documents.
+
+Options:
+  --help  Show this message and exit.
 ```
 
 ## Exit the virtual environment

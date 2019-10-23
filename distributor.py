@@ -1,6 +1,5 @@
 '''
-Description: Script that distributes automatically the documents to some
-annotators.
+Script that distributes a corpus of documents among some given annotators.
 
 Author of this script:
     - Alejandro Asensio <alejandro.asensio@bsc.es>
@@ -17,13 +16,6 @@ TODO
     `training`, `regular` or `audit`; (ii) Complete mode distributes massively
     all the documents in the given corpus to some given annotators.
 
-# @click.option('--complete-distribution', is_flag=True,
-#               help="Distribute the documents massively for all bunches in one single execution.")
-# @click.option('--bunch-type', prompt=True,
-#               type=click.Choice(['training', 'regular', 'audit'], case_sensitive=False))
-# @click.option('--bunch-dir', prompt='New directory name for the run (e.g. `01`)',
-#               help='Name for the new directory where the documents are going to be copied.')
-
 '''
 
 from collections import Counter
@@ -37,55 +29,16 @@ import click
 
 import utils
 
-# Here below there are some PyLint disablings (by symbolic message).
+# === PyLint disablings (by symbolic message) ===
 # pylint: disable=expression-not-assigned
 # pylint: disable=no-value-for-parameter
+# pylint: disable=invalid-name
 
-# -----------------------------------------------------------------------------
-# CONSTANTS (modify them to adjust this script)
-# -----------------------------------------------------------------------------
-
-BUNCHES = [
-    {
-        'type': 'training',
-        'amount': 25,
-        'dirs': ['08']
-    },
-    {
-        'type': 'regular',
-        'amount': 50,
-        'dirs': []
-    },
-    {
-        'type': 'audit',
-        'amount': 50,
-        'dirs': ['02', '03', '04', '05', '06', '07']
-    }
-]
-
-# Number of documents per audit bunch that are annotated by more than one
-# annotator
-OVERLAPPINGS_PER_AUDIT = 8
-
-# Seed for random reproducibility purposes (the value can be whatever integer)
-SEED = 777
-
-# Directory to put some empty files for testing
+# Directory to put created empty files for testing
 TEST_DIR = 'empty_corpus'
 
 # Directory to put each annotator subdirectory
 ANN_DIR = 'annotators'
-
-# Because SonEspases Hospital is the only balearic representative in the documents spool,
-# we considered calculating a fixed percentage for those documents, based on regional
-# populations (Wikipedia, on 21th Oct 2019).
-CATALONIA_POPULATION = 7543825
-BALEARIC_POPULATION = 1150839
-TOTAL_POPULTAION = CATALONIA_POPULATION + BALEARIC_POPULATION
-SONESPASES_PERCENTAGE = round(
-    BALEARIC_POPULATION / TOTAL_POPULTAION, 2)  # 0.13
-
-# -----------------------------------------------------------------------------
 
 
 @click.command()
@@ -94,18 +47,49 @@ SONESPASES_PERCENTAGE = round(
 @click.argument('annotators', nargs=4, default=None)
 def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str, str]):
     '''
-    Distribute plain text documents into subdirectories following criteria
-    depending on the run types defined for the project: (i) Training type
-    assigns the exactly same amount of documents to each annotator; (ii)
-    Regular run assigns a certain bunch of documents for each annotator, being
-    all the documents different among the annotators. (iii) Audit run assigns a
-    certain bunch of documents for each annotator, overlapping some of them, so
-    some documents will be annotated more than once.
+    Distribute plain text documents into subdirectories the CONSTANTS defined
+    at the beggining of this function.
 
-    Moreover, the pickings of the documents depend on the percentages
-    calculated regarding the representativeness of clustered SonEspases and
-    AQuAS documents.
+    The pickings of the documents depend on the percentages calculated
+    dynamically regarding the representativeness of previously clustered
+    SonEspases and AQuAS documents.
     '''
+
+    # CONSTANTS. Modify them to adjust this script to your needs.
+
+    BUNCHES = [
+        {
+            'type': 'training',
+            'amount': 25,
+            'dirs': ['08']
+        },
+        {
+            'type': 'regular',
+            'amount': 50,
+            'dirs': []
+        },
+        {
+            'type': 'audit',
+            'amount': 50,
+            'dirs': ['02', '03', '04', '05', '06', '07']
+        }
+    ]
+
+    # Number of documents per audit bunch that are annotated by more than one
+    # annotator
+    OVERLAPPINGS_PER_AUDIT = 8
+
+    # Seed for random reproducibility purposes (the value can be whatever integer)
+    SEED = 777
+
+    # Because SonEspases Hospital is the only balearic representative in the documents spool,
+    # we considered calculating a fixed percentage for those documents, based on regional
+    # populations (Wikipedia, on 21th Oct 2019).
+    CATALONIA_POPULATION = 7543825
+    BALEARIC_POPULATION = 1150839
+    TOTAL_POPULTAION = CATALONIA_POPULATION + BALEARIC_POPULATION
+    SONESPASES_PERCENTAGE = round(
+        BALEARIC_POPULATION / TOTAL_POPULTAION, 2)  # 0.13
 
     def pick_random_bunch_se(amount: int) -> List[str]:
         '''Pick a bunch of random documents from the spool.'''
@@ -249,16 +233,14 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
          if bunch['type'] == 'audit'
          for overlappings_list in islice(cycle(intertagging_seq), i, i + 1)]
 
-    # Flags checking before writing to disk
-    if not os.path.exists(corpus):
+    # Checkings before writing to disk
+    if os.path.exists(corpus):
+        utils.write_to_disk(distributions)
+    else:
         utils.create_empty_files_from_csv_se(
             TEST_DIR, clusters_file, delimiter)
-    else:
-        utils.write_to_disk(distributions)
 
-    # utils.write_to_disk(distributions)
-
-    # Printings to give feedback to the user of the script
+    # Printings to give feedback to the user
     [print(root, len(files))
      for root, dirs, files in os.walk(ANN_DIR)]
     print('Initial pickings:', total_pickings)

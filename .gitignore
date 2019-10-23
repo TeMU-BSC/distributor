@@ -39,3 +39,4 @@ tmp/**
 test-results.xml
 uitests/out/**
 !build/
+.vscode/
