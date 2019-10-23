@@ -47,14 +47,10 @@ git clone https://github.com/TeMU-BSC/distributor.git
 cd distributor
 ```
 
-2. **A. Deterministic:** Install the explicit version of the packages listed in `Pipfile.lock`:
+2. Install the exact version of the packages listed in `Pipfile.lock`
+(deterministic installation), including the ones for development:
 ```bash
-pipenv install --ignore-pipfile
-```
-
-2. **B. Development:** Alternatively, install the latest version of all packages as well as the development packages with `--dev` option:
-```bash
-pipenv install --dev
+pipenv install --ignore-pipfile --dev
 ```
 
 3. Activate the virtual environment:
@@ -95,4 +91,28 @@ Options:
 ## Exit the virtual environment
 ```bash
 exit
+```
+
+## System requirements testing using Docker
+
+For system consistency purposes, we have prepared two dockerfiles to test the system requirements to run this script successfully.
+
+Make sure you have Docker installed: https://docs.docker.com/install/linux/docker-ce/ubuntu/
+
+Python3.7 (based on alpine) container:
+```bash
+docker build . --file Dockerfile-python-alpine --tag distributor-python-alpine
+docker run distributor-python-alpine --name distributor-python-alpine-container
+```
+
+Ubuntu 18.04 container:
+```bash
+docker build . --file Dockerfile-ubuntu --tag distributor-ubuntu
+docker run distributor-ubuntu --name distributor-ubuntu-container
+```
+
+Finally, you can remove the previous containers and images:
+```bash
+docker container rm distributor-python-alpine-container distributor-ubuntu-container 
+docker image rm distributor-python-alpine distributor-ubuntu
 ```

@@ -1,0 +1,7 @@
+FROM python:3.7-alpine
+COPY . .
+RUN apk add --no-cache gcc musl-dev linux-headers && \
+    pip install --upgrade pip && \
+    pip install -r requirements.txt && \
+    python distributor.py clusters.tsv i_dont_exist A B C D && rm -rf annotators  # test
+CMD python distributor.py clusters.tsv empty_corpus carmen eugenia isabel victoria
