@@ -81,8 +81,8 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
     # Because SonEspases Hospital is the only balearic representative in the documents spool,
     # we considered calculating a fixed percentage for those documents, based on regional
     # populations (Wikipedia, on 21th Oct 2019).
-    CATALONIA_POPULATION = 7543825
-    BALEARIC_POPULATION = 1150839
+    CATALONIA_POPULATION = 7543825  # 7_543_825 underscore separator valid in python3.6+
+    BALEARIC_POPULATION = 1150839  # 1_150_839 underscore separator valid in python3.6+
     TOTAL_POPULTAION = CATALONIA_POPULATION + BALEARIC_POPULATION
     SONESPASES_PERCENTAGE = round(
         BALEARIC_POPULATION / TOTAL_POPULTAION, 2)  # 0.13
@@ -234,7 +234,7 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
             TEST_DIR, clusters_file, delimiter)
 
     # Printings to give feedback to the user
-    for root, dirs, files in os.walk(ANN_DIR):
+    for root, _, files in os.walk(ANN_DIR):
         print(root, len(files))
     print('Documents written to disk:', len(distributions))
     print('Initial pickings:', total_pickings)
