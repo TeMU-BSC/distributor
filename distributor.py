@@ -30,7 +30,6 @@ import click
 import utils
 
 # === PyLint disablings (by symbolic message) ===
-# pylint: disable=expression-not-assigned
 # pylint: disable=no-value-for-parameter
 # pylint: disable=invalid-name
 
@@ -57,23 +56,20 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
 
     # CONSTANTS. Modify them to adjust this script to your needs.
 
-    BUNCHES = [
-        {
-            'type': 'training',
+    BUNCHES = {
+        'training': {
             'amount': 25,
             'dirs': ['08']
         },
-        {
-            'type': 'regular',
+        'regular': {
             'amount': 50,
             'dirs': []
         },
-        {
-            'type': 'audit',
+        'audit': {
             'amount': 50,
             'dirs': ['02', '03', '04', '05', '06', '07']
         }
-    ]
+    }
 
     # Number of documents per audit bunch that are annotated by more than one
     # annotator
@@ -101,9 +97,7 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
 
     def training_bunch(bunch_dir: str) -> List[Tuple[str, str]]:
         '''Assign exactly the same documents to each annotator.'''
-        for bunch in BUNCHES:
-            if bunch['type'] == 'training':
-                amount = bunch['amount']
+        amount = BUNCHES['training']['amount']
         picked_docs = pick_random_bunch_se(amount)
         for doc in picked_docs:
             src = os.path.join(corpus, doc)
@@ -116,9 +110,7 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
     def regular_bunch(bunch_dir: str) -> List[Tuple[str, str]]:
         '''Assign the same amount of documents to each annotator being all
         documents different from one annotator to other.'''
-        for bunch in BUNCHES:
-            if bunch['type'] == 'regular':
-                amount = bunch['amount']
+        amount = BUNCHES['regular']['amount']
         for annotator in annotators:
             picked_docs = pick_random_bunch_se(amount)
             dst = os.path.join(ANN_DIR, annotator, bunch_dir)
@@ -143,10 +135,8 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
 
             # Step 2: Pick the audit docs and add the bunch of docs to this
             # annotator
-            for bunch in BUNCHES:
-                if bunch['type'] == 'audit':
-                    amount = bunch['amount'] - discards
-            picked_docs = pick_random_bunch_se(amount)
+            special_amount = BUNCHES['audit']['amount'] - discards
+            picked_docs = pick_random_bunch_se(special_amount)
             srcs = [os.path.join(corpus, doc) for doc in picked_docs]
             dst = os.path.join(ANN_DIR, annotator, bunch_dir)
             for src in srcs:
@@ -199,14 +189,14 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
 
     # Calculate the total amount of pickings
     pickings = list()
-    for bunch in BUNCHES:
-        if bunch['type'] == 'training':
-            pick = bunch['amount']
-        if bunch['type'] == 'regular':
-            pick = bunch['amount'] * len(annotators) * len(bunch['dirs'])
-        if bunch['type'] == 'audit':
-            pick = (bunch['amount'] * len(annotators) -
-                    OVERLAPPINGS_PER_AUDIT) * len(bunch['dirs'])
+    for bunch_type, props in BUNCHES.items():
+        if bunch_type == 'training':
+            pick = props['amount']
+        if bunch_type == 'regular':
+            pick = props['amount'] * len(annotators) * len(props['dirs'])
+        if bunch_type == 'audit':
+            pick = (props['amount'] * len(annotators) -
+                    OVERLAPPINGS_PER_AUDIT) * len(props['dirs'])
         pickings.append(pick)
     total_pickings = sum(pickings)
 
@@ -222,16 +212,19 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
 
     # Execution of all the bunches pickings
     # (using list comprehensions as shortcuts, not returning any value from them)
-    for bunch in BUNCHES:
-        [training_bunch(dirname) for dirname in bunch['dirs']
-         if bunch['type'] == 'training']
-        [regular_bunch(dirname) for dirname in bunch['dirs']
-         if bunch['type'] == 'regular']
+    for bunch_type, props in BUNCHES.items():
+        if bunch_type == 'training':
+            for dirname in props['dirs']:
+                training_bunch(dirname)
+        if bunch_type == 'regular':
+            for dirname in props['dirs']:
+                regular_bunch(dirname)
         # The audit bunch function needs the overlapping list to duplicate
         # documents accordingly
-        [audit_bunch(dirname, overlappings_list) for i, dirname in enumerate(bunch['dirs'])
-         if bunch['type'] == 'audit'
-         for overlappings_list in islice(cycle(intertagging_seq), i, i + 1)]
+        if bunch_type == 'audit':
+            for i, dirname in enumerate(props['dirs']):
+                for overlappings_list in islice(cycle(intertagging_seq), i, i + 1):
+                    audit_bunch(dirname, overlappings_list)
 
     # Checkings before writing to disk
     if os.path.exists(corpus):
@@ -241,15 +234,16 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
             TEST_DIR, clusters_file, delimiter)
 
     # Printings to give feedback to the user
-    [print(root, len(files))
-     for root, dirs, files in os.walk(ANN_DIR)]
-    print('Initial pickings:', total_pickings)
+    for root, dirs, files in os.walk(ANN_DIR):
+        print(root, len(files))
     print('Documents written to disk:', len(distributions))
+    print('Initial pickings:', total_pickings)
 
-    # Distinct documents to annotate
+    # Find the distinct documents to annotate
     regex = r'(sonespases_)?(\d+)(\.utf8)?\.txt'
     pattern = re.compile(regex)
     filenames = re.findall(pattern, str(distributions))
+
     print('Distinct annotations:', len(set(filenames)))
     print('Remaining spool:', len(spool))
 
