@@ -106,13 +106,13 @@ Make sure you have Docker installed: https://docs.docker.com/install/linux/docke
 Python3.7 (based on alpine) container:
 ```bash
 docker build . --file Dockerfile-python-alpine --tag distributor-python-alpine
-docker run distributor-python-alpine --name distributor-python-alpine-container
+docker run --name distributor-python-alpine-container distributor-python-alpine
 ```
 
 Ubuntu 18.04 container:
 ```bash
 docker build . --file Dockerfile-ubuntu --tag distributor-ubuntu
-docker run distributor-ubuntu --name distributor-ubuntu-container
+docker run --name distributor-ubuntu-container distributor-ubuntu
 ```
 
 Finally, you can remove the previous containers and images:
