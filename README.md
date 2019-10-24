@@ -1,16 +1,15 @@
-# Distributor for Documents to Annotate
+# Distributor -- for Documents to Annotate
 
-This script distributes a given list of files (plain text documents) among 4
-annotators.
+This script distributes a given list of files (plain text documents) among **4 annotators**.
 
 It is a command-line script callable by python3 interpreter, build with
 [Click](https://click.palletsprojects.com/en/7.x/).
 
 The expected output is the creation of a main directory named `annotators` with
 4 subdirectories, one for each annotator. The documents are randomly picked
-from a clustered spool of documents, defined in a TSV file. In order to
-preserve the reproducibility, before each call of `random.sample()` a seed is
-set.
+from a clustered spool of documents, defined in `clusters.tsv`, that is a copy
+of `files_clustering/labels_sup_umap_emb_8.tsv`. In order to preserve the
+reproducibility, a seed is set before each call of `random.sample()`.
 
 The distribution has 3 different bunch types:
 - **Training**: The same documents are assigned to all annotators, so each
@@ -97,9 +96,10 @@ Options:
 exit
 ```
 
-## System requirements testing using Docker
+## Extra: Testing of system requirements using Docker
 
-For system consistency purposes, we have prepared two dockerfiles to test the system requirements to run this script successfully.
+For consistency purposes, we have prepared two dockerfiles to test the system
+requirements in order to run this script successfully.
 
 Make sure you have Docker installed: https://docs.docker.com/install/linux/docker-ce/ubuntu/
 
