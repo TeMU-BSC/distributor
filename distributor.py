@@ -23,21 +23,56 @@ from itertools import combinations, cycle, islice
 import os
 import re
 import random
-from typing import List, Tuple
+from typing import Generator, List, Tuple
 
 import click
 
 import utils
 
+
 # === PyLint disablings (by symbolic message) ===
 # pylint: disable=no-value-for-parameter
 # pylint: disable=invalid-name
+
 
 # Directory to put created empty files for testing
 TEST_DIR = 'empty_corpus'
 
 # Directory to put each annotator subdirectory
 ANN_DIR = 'annotators'
+
+# CONSTANTS. Modify them to adjust this script to your needs.
+
+BUNCHES = {
+    'training': {
+        'amount': 25,
+        'dirs': ['08']
+    },
+    'regular': {
+        'amount': 50,
+        'dirs': []
+    },
+    'audit': {
+        'amount': 50,
+        'dirs': ['02', '03', '04', '05', '06', '07']
+    }
+}
+
+# Number of documents per audit bunch that are annotated by more than one
+# annotator
+OVERLAPPINGS_PER_AUDIT = 8
+
+# Seed for random reproducibility purposes (the value can be whatever integer)
+SEED = 777
+
+# Because SonEspases Hospital is the only balearic representative in the documents spool,
+# we considered calculating a fixed percentage for those documents, based on regional
+# populations (Wikipedia, on 21th Oct 2019).
+CATALONIA_POPULATION = 7543825  # 7_543_825 underscore separator valid in python3.6+
+BALEARIC_POPULATION = 1150839  # 1_150_839 underscore separator valid in python3.6+
+TOTAL_POPULTAION = CATALONIA_POPULATION + BALEARIC_POPULATION
+SONESPASES_PERCENTAGE = round(
+    BALEARIC_POPULATION / TOTAL_POPULTAION, 2)  # 0.13
 
 
 @click.command()
@@ -54,74 +89,42 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
     SonEspases and AQuAS documents.
     '''
 
-    # CONSTANTS. Modify them to adjust this script to your needs.
-
-    BUNCHES = {
-        'training': {
-            'amount': 25,
-            'dirs': ['08']
-        },
-        'regular': {
-            'amount': 50,
-            'dirs': []
-        },
-        'audit': {
-            'amount': 50,
-            'dirs': ['02', '03', '04', '05', '06', '07']
-        }
-    }
-
-    # Number of documents per audit bunch that are annotated by more than one
-    # annotator
-    OVERLAPPINGS_PER_AUDIT = 8
-
-    # Seed for random reproducibility purposes (the value can be whatever integer)
-    SEED = 777
-
-    # Because SonEspases Hospital is the only balearic representative in the documents spool,
-    # we considered calculating a fixed percentage for those documents, based on regional
-    # populations (Wikipedia, on 21th Oct 2019).
-    CATALONIA_POPULATION = 7543825  # 7_543_825 underscore separator valid in python3.6+
-    BALEARIC_POPULATION = 1150839  # 1_150_839 underscore separator valid in python3.6+
-    TOTAL_POPULTAION = CATALONIA_POPULATION + BALEARIC_POPULATION
-    SONESPASES_PERCENTAGE = round(
-        BALEARIC_POPULATION / TOTAL_POPULTAION, 2)  # 0.13
-
-    def pick_random_bunch_se(amount: int) -> List[str]:
-        '''Pick a bunch of random documents from the spool.'''
+    def random_bunch_se(amount: int) -> Generator[str, None, None]:
+        '''Return a generator of document filenames that is a random bunch
+        from the global spool variable.'''
         random.seed(SEED)
         bunch = random.sample(spool, amount)
         for doc in bunch:
+            yield doc
             spool.remove(doc)
-        return bunch
 
-    def training_bunch(bunch_dir: str) -> List[Tuple[str, str]]:
+    def training_bunch(dirname: str):
         '''Assign exactly the same documents to each annotator.'''
         amount = BUNCHES['training']['amount']
-        picked_docs = pick_random_bunch_se(amount)
-        for doc in picked_docs:
+        for doc in random_bunch_se(amount):
             src = os.path.join(corpus, doc)
+
             # Repeat the same destination for every annotator
             for annotator in annotators:
                 dst = os.path.join(
-                    ANN_DIR, annotator, bunch_dir)
+                    ANN_DIR, annotator, dirname)
                 distributions.append((src, dst))
 
-    def regular_bunch(bunch_dir: str) -> List[Tuple[str, str]]:
+    def regular_bunch(dirname: str):
         '''Assign the same amount of documents to each annotator being all
         documents different from one annotator to other.'''
         amount = BUNCHES['regular']['amount']
         for annotator in annotators:
-            picked_docs = pick_random_bunch_se(amount)
-            dst = os.path.join(ANN_DIR, annotator, bunch_dir)
+            dst = os.path.join(ANN_DIR, annotator, dirname)
+
             # Assign different pickings with the same amount of docs to each
             # annotator
-            for doc in picked_docs:
+            for doc in random_bunch_se(amount):
                 src = os.path.join(corpus, doc)
                 distributions.append((src, dst))
 
     def audit_bunch(
-            bunch_dir: str, overlappings_list: List[List[Tuple[str, str]]]):
+            dirname: str, overlappings_list: List[List[Tuple[str, str]]]):
         '''Assign a bunch of documents to each annotator, but some of the
         documents are repeated (overlapped).'''
         for annotator in annotators:
@@ -136,9 +139,9 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
             # Step 2: Pick the audit docs and add the bunch of docs to this
             # annotator
             special_amount = BUNCHES['audit']['amount'] - discards
-            picked_docs = pick_random_bunch_se(special_amount)
-            srcs = [os.path.join(corpus, doc) for doc in picked_docs]
-            dst = os.path.join(ANN_DIR, annotator, bunch_dir)
+            picked_docs = list(random_bunch_se(special_amount))
+            srcs = (os.path.join(corpus, doc) for doc in picked_docs)
+            dst = os.path.join(ANN_DIR, annotator, dirname)
             for src in srcs:
                 distributions.append((src, dst))
 
@@ -147,12 +150,12 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
                 if annotator == src:
                     doc_to_copy = os.path.join(corpus, picked_docs[index])
                     destination = os.path.join(
-                        ANN_DIR, dst, bunch_dir)
+                        ANN_DIR, dst, dirname)
                     distributions.append((doc_to_copy, destination))
 
     # Accumulative distributions list of tuples (src_file, dst_dir), to later
     # write to disk
-    distributions = list()
+    distributions = []
 
     # Load all documents from clustering TSV file in a dictionary {cluster:
     # docs}
@@ -173,7 +176,7 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
 
     # Calculate picking percentages per cluster
     aquas_global_percentage = 1 - SONESPASES_PERCENTAGE
-    percentages = dict()
+    percentages = {}
     for cluster, size in sizes:
         if cluster == sonespases_cluster_id:
             percentage = SONESPASES_PERCENTAGE
@@ -188,7 +191,7 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
                         for i in range(0, 5, 2)]
 
     # Calculate the total amount of pickings
-    pickings = list()
+    pickings = []
     for bunch_type, props in BUNCHES.items():
         if bunch_type == 'training':
             pick = props['amount']
@@ -200,8 +203,8 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
         pickings.append(pick)
     total_pickings = sum(pickings)
 
-    # Pick all documents ensuring the percentages
-    spool = list()
+    # Select the documents spool ensuring the percentages
+    spool = []
     for cluster, docs in all_clustered_docs.items():
         random.seed(SEED)
         units = round(total_pickings * percentages[cluster])
