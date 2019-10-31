@@ -25,57 +25,76 @@ In order to preserve the original corpus directory, the documents are copied
 
 The following steps are tested on **Ubuntu 18.04** operatig system.
 
-## Requirements
-
-- python3 (any subversion)
-- pip3
-- pipenv - a wonderful package dependency and virtualenv managing tool
-
-To ensure that your system has pip3 installed and updated, run the following commands:
-```bash
-sudo apt update && sudo apt install -y python3-pip
-pip3 install --user --upgrade pip
-pip3 install --user --upgrade pipenv
-```
 
 ## Set up the environment
 
-1. Clone this repo and enter the project directory:
+Simply run the `setup.sh` bash script to set up all the previous requirements:
 ```bash
-git clone https://github.com/TeMU-BSC/distributor.git
-cd distributor
+./setup.sh
 ```
 
-2. Install, using the system `python3` link, the exact version of the packages
-listed in `Pipfile.lock` (deterministic installation), including the ones for
-development:
+
+## For final users
+
+1. Install, using the system `python3` interpreter, the exact version of the packages listed in `Pipfile.lock` (deterministic installation):
 ```bash
-pipenv install --three --ignore-pipfile --dev
+pipenv install --three --ignore-pipfile
 ```
 
-3. Activate the virtual environment:
+2. Activate the virtual environment:
 ```bash
 pipenv shell
 ```
-
 After that, you will see `(distributor)` prepended to your prompt.
 
-## Test the script
+3. Run the script
+```bash
+python distributor.py clusters.tsv /path/to/real/corpus/ carmen eugenia isabel victoria
+```
+
+4. Check the new directories and files created inside `annotators` directory:
+```bash
+ls annotators
+```
+
+5. Exit the virtual environment managed by pipenv
+```bash
+exit
+```
+
+
+## For developers
+
+1. Install, using the system `python3` interpreter, the latest version of the packages listed in `Pipfile` (non-deterministic installation), including the packages for development:
+```bash
+pipenv install --three --dev
+```
+
+2. Activate the virtual environment:
+```bash
+pipenv shell
+```
+After that, you will see `(distributor)` prepended to your prompt.
+
+3. Test the script using pytest
 ```bash
 pytest
+```
+
+4. Check the new dummy directories and files created inside `annotators` directory:
+```bash
 ls annotators
 rm -rf annotators empty_corpus
 ```
 
-## Run the script
+5. Exit the virtual environment managed by pipenv
 ```bash
-python distributor.py clusters.tsv /path/to/real/corpus/ carmen eugenia isabel victoria
-ls annotators
+exit
 ```
 
-Now, the distributed files are placed in the `annotators` directory.
 
 ## Usage help
+
 ```
 python distributor.py --help
 Usage: distributor.py [OPTIONS] CLUSTERS_FILE CORPUS ANNOTATORS...
@@ -91,12 +110,8 @@ Options:
   --help  Show this message and exit.
 ```
 
-## Exit the virtual environment
-```bash
-exit
-```
 
-## Extra: Testing of system requirements using Docker
+## (Optional) Testing of system requirements using Docker
 
 For consistency purposes, we have prepared two dockerfiles to test the system
 requirements in order to run this script successfully.
