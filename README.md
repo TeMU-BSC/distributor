@@ -1,6 +1,7 @@
 # Distributor -- for Documents to Annotate
 
-This script distributes a given list of files (plain text documents) among **4 annotators**.
+This script distributes a given list of files (plain text documents) among
+**4 annotators**.
 
 It is a command-line script callable by python3 interpreter, build with
 [Click](https://click.palletsprojects.com/en/7.x/).
@@ -8,10 +9,15 @@ It is a command-line script callable by python3 interpreter, build with
 The expected output is the creation of a main directory named `annotators` with
 4 subdirectories, one for each annotator. The documents are randomly picked
 from a clustered spool of documents, defined in `clusters.tsv`, that is a copy
-of `files_clustering/labels_sup_umap_emb_8.tsv`. In order to preserve the
+of `files_clustering/labels_sup_umap_emb_8.tsv`. In order to get a successful
+run if this script, the filanames listed in `clusters.tsv` file must exist in
+the "real_corpus" directory.
+
+In order to preserve the
 reproducibility, a seed is set before each call of `random.sample()`.
 
 The distribution has 3 different bunch types:
+
 - **Training**: The same documents are assigned to all annotators, so each
 document will be annotated 4 times.
 - **Regular**: A different bunch of documents are assigned to each annotator,
@@ -25,79 +31,91 @@ In order to preserve the original corpus directory, the documents are copied
 
 The following steps are tested on **Ubuntu 18.04** operatig system.
 
-
 ## Set up the environment
 
-Clone this github repo, enter the project directory and simply run the `setup.sh` bash script to set up all the requirements:
+Clone this github repo, enter the project directory and simply run the
+`setup.sh` bash script to set up all the requirements:
+
 ```bash
 git clone https://github.com/TeMU-BSC/distributor.git
 cd distributor
-./setup.sh
+source ./setup.sh
 ```
 
+## Run the main script
 
-## For final users
+### For final users
 
-1. Install, using the system `python3` interpreter, the exact version of the packages listed in `Pipfile.lock` (deterministic installation):
+- Install, using the system `python3` interpreter, the exact version of the packages listed in `Pipfile.lock` (deterministic installation):
+
 ```bash
 pipenv install --three --ignore-pipfile
 ```
 
-2. Activate the virtual environment:
+- Activate the virtual environment:
+
 ```bash
 pipenv shell
 ```
+
 After that, you will see `(distributor)` prepended to your prompt.
 
-3. Run the script
+- Run the script
+
 ```bash
 python distributor.py clusters.tsv /path/to/real/corpus/ carmen eugenia isabel victoria
 ```
 
-4. Check the new directories and files created inside `annotators` directory:
+- Check the new directories and files created inside `annotators` directory:
+
 ```bash
-ls annotators
+tree -d annotators
 ```
 
-5. Exit the virtual environment managed by pipenv
+- Exit the virtual environment managed by pipenv
+
 ```bash
 exit
 ```
 
+### For developers
 
-## For developers
+- Install, using the system `python3` interpreter, the latest version of the packages listed in `Pipfile` (non-deterministic installation), including the packages for development:
 
-1. Install, using the system `python3` interpreter, the latest version of the packages listed in `Pipfile` (non-deterministic installation), including the packages for development:
 ```bash
 pipenv install --three --dev
 ```
 
-2. Activate the virtual environment:
+- Activate the virtual environment:
+
 ```bash
 pipenv shell
 ```
+
 After that, you will see `(distributor)` prepended to your prompt.
 
-3. Test the script using pytest
+- Test the script using pytest
+
 ```bash
 pytest
 ```
 
-4. Check the new dummy directories and files created inside `annotators` directory:
+- Check the new dummy directories and files created inside `annotators` directory:
+
 ```bash
-ls annotators
+tree -d annotators
 rm -rf annotators empty_corpus
 ```
 
-5. Exit the virtual environment managed by pipenv
+- Exit the virtual environment managed by pipenv
+
 ```bash
 exit
 ```
 
+## Usage
 
-## Usage help
-
-```
+```bash
 python distributor.py --help
 Usage: distributor.py [OPTIONS] CLUSTERS_FILE CORPUS ANNOTATORS...
 
@@ -112,28 +130,30 @@ Options:
   --help  Show this message and exit.
 ```
 
-
 ## (Optional) Testing of system requirements using Docker
 
 For consistency purposes, we have prepared two dockerfiles to test the system
 requirements in order to run this script successfully.
 
-Make sure you have Docker installed: https://docs.docker.com/install/linux/docker-ce/ubuntu/
+Make sure you have Docker installed: <https://docs.docker.com/install/linux/docker-ce/ubuntu/>
 
 Python3.7 (based on alpine) container:
+
 ```bash
 docker build . --file Dockerfile-python-alpine --tag distributor-python-alpine
 docker run --name distributor-python-alpine-container distributor-python-alpine
 ```
 
 Ubuntu 18.04 container:
+
 ```bash
 docker build . --file Dockerfile-ubuntu --tag distributor-ubuntu
 docker run --name distributor-ubuntu-container distributor-ubuntu
 ```
 
 Finally, you can remove the previous containers and images:
+
 ```bash
-docker container rm distributor-python-alpine-container distributor-ubuntu-container 
+docker container rm distributor-python-alpine-container distributor-ubuntu-container
 docker image rm distributor-python-alpine distributor-ubuntu
 ```
