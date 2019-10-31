@@ -127,6 +127,9 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
             dirname: str, overlappings_list: List[List[Tuple[str, str]]]):
         '''Assign a bunch of documents to each annotator, but some of the
         documents are repeated (overlapped).'''
+        # Extra info for Siamak
+        duplicated_docs = list()
+
         for annotator in annotators:
 
             # Step 1: Discard as many documents as this annotator appears in
@@ -149,9 +152,16 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
             for index, (src, dst) in enumerate(overlappings_list):
                 if annotator == src:
                     doc_to_copy = os.path.join(corpus, picked_docs[index])
+
+                    # Extra info for Siamak
+                    duplicated_docs.append(picked_docs[index])
+
                     destination = os.path.join(
                         ANN_DIR, dst, dirname)
                     distributions.append((doc_to_copy, destination))
+        
+        # Extra info for Siamak
+        duplicated_docs_dict[dirname] = duplicated_docs
 
     # Accumulative distributions list of tuples (src_file, dst_dir), to later
     # write to disk
@@ -215,6 +225,10 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
 
     # Execution of all the bunches pickings
     # (using list comprehensions as shortcuts, not returning any value from them)
+    
+    # Extra info for Siamak
+    duplicated_docs_dict = dict()
+
     for bunch_type, props in BUNCHES.items():
         if bunch_type == 'training':
             for dirname in props['dirs']:
@@ -228,6 +242,9 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
             for i, dirname in enumerate(props['dirs']):
                 for overlappings_list in islice(cycle(intertagging_seq), i, i + 1):
                     audit_bunch(dirname, overlappings_list)
+    
+    # Extra info for Siamak    
+    print(duplicated_docs_dict)
 
     # Checkings before writing to disk
     if os.path.exists(corpus):
