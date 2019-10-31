@@ -17,3 +17,4 @@ export PIPENV_VENV_IN_PROJECT="enabled"
 # sudo apt install -y direnv
 # echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
 # direnv allow .
+# echo export PIPENV_VENV_IN_PROJECT=enabled >> .envrc
