@@ -28,8 +28,10 @@ The following steps are tested on **Ubuntu 18.04** operatig system.
 
 ## Set up the environment
 
-Simply run the `setup.sh` bash script to set up all the previous requirements:
+Clone this github repo, enter the project directory and simply run the `setup.sh` bash script to set up all the requirements:
 ```bash
+git clone https://github.com/TeMU-BSC/distributor.git
+cd distributor
 ./setup.sh
 ```
 

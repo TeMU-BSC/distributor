@@ -1,7 +1,3 @@
-# Clone this github repo and enter the project directory
-git clone https://github.com/TeMU-BSC/distributor.git
-cd distributor
-
 # Update your repositories
 sudo apt update
 
