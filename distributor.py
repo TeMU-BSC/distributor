@@ -36,38 +36,55 @@ import utils
 
 
 # Directory to put created empty files for testing
-TEST_DIR = 'empty_corpus'
+EMPTY_FILES_DIR = 'empty_files_corpus'
 
 # Directory to put each annotator subdirectory
 ANN_DIR = 'annotators'
 
 # CONSTANTS. Modify them to adjust this script to your needs.
 
+# BUNCHES = {
+#     'training': {
+#         'amount': 25,
+#         'dirs': ['08']
+#     },
+#     'regular': {
+#         'amount': 50,
+#         'dirs': []
+#     },
+#     'audit': {
+#         'amount': 50,
+#         'dirs': ['02', '03', '04', '05', '06', '07']
+#     }
+# }
 BUNCHES = {
-    'training': {
-        'amount': 25,
-        'dirs': ['08']
-    },
-    'regular': {
-        'amount': 50,
-        'dirs': []
-    },
+    # 'training': {
+    #     'amount': 25,
+    #     'dirs': []
+    # },
+    # 'regular': {
+    #     'amount': 50,
+    #     'dirs': []
+    # },
     'audit': {
         'amount': 50,
-        'dirs': ['02', '03', '04', '05', '06', '07']
+        'dirs': ['04']
     }
 }
 
 # Number of documents per audit bunch that are annotated by more than one
 # annotator
-OVERLAPPINGS_PER_AUDIT = 8
+# OVERLAPPINGS_PER_AUDIT = 8
+# OVERLAPPINGS_PER_AUDIT = 100  # 25 overlappings each annotator (4 annotators)
+OVERLAPPINGS_PER_AUDIT = 0
 
 # Seed for random reproducibility purposes (the value can be whatever integer)
 SEED = 777
 
-# Because SonEspases Hospital is the only balearic representative in the documents spool,
-# we considered calculating a fixed percentage for those documents, based on regional
-# populations (Wikipedia, on 21th Oct 2019).
+# Because "Hospital Universitari Son Espases" (HUSE) is the only Balearic
+# representative in the documents spool, we considered calculating a fixed
+# percentage for those documents, based on regional populations (Wikipedia, on
+# 21th Oct 2019).
 CATALONIA_POPULATION = 7543825  # 7_543_825 underscore separator valid in python3.6+
 BALEARIC_POPULATION = 1150839  # 1_150_839 underscore separator valid in python3.6+
 TOTAL_POPULTAION = CATALONIA_POPULATION + BALEARIC_POPULATION
@@ -79,7 +96,8 @@ SONESPASES_PERCENTAGE = round(
 @click.argument('clusters_file', default=None)
 @click.argument('corpus', default=None)
 @click.argument('annotators', nargs=4, default=None)
-def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str, str]):
+@click.option('-i', '--individual-bunch')
+def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str, str], individual_bunch: str):
     '''
     Distribute plain text documents into subdirectories the CONSTANTS defined
     at the beggining of this function.
@@ -226,7 +244,7 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
     # Execution of all the bunches pickings
     # (using list comprehensions as shortcuts, not returning any value from them)
     
-    # Extra info for Siamak
+    # Info for Siamak
     duplicated_docs_dict = dict()
 
     for bunch_type, props in BUNCHES.items():
@@ -243,15 +261,15 @@ def distribute_documents(clusters_file: str, corpus: str, annotators: Tuple[str,
                 for overlappings_list in islice(cycle(intertagging_seq), i, i + 1):
                     audit_bunch(dirname, overlappings_list)
     
-    # Extra info for Siamak    
-    print(duplicated_docs_dict)
+    # Info for Siamak
+    print('Duplicated documents (for Siamak):', duplicated_docs_dict)
 
     # Checkings before writing to disk
     if os.path.exists(corpus):
         utils.write_to_disk(distributions)
     else:
         utils.create_empty_files_from_csv_se(
-            TEST_DIR, clusters_file, delimiter)
+            EMPTY_FILES_DIR, clusters_file, delimiter)
 
     # Printings to give feedback to the user
     for root, _, files in os.walk(ANN_DIR):
