@@ -8,13 +8,11 @@ It is a command-line script callable by python3 interpreter, build with
 
 The expected output is the creation of a main directory named `annotators` with
 4 subdirectories, one for each annotator. The documents are randomly picked
-from a clustered spool of documents, defined in `clusters.tsv`, that is a copy
-of `files_clustering/labels_sup_umap_emb_8.tsv`. In order to get a successful
-run if this script, the filanames listed in `clusters.tsv` file must exist in
-the "real_corpus" directory.
+from a clustered spool of documents, defined in `clusters/labels_sup_umap_emb_8.tsv`.
+In order to get a successful run if this script, the filanames listed in that
+TSV file must exist in the further "real_corpus" directory.
 
-In order to preserve the
-reproducibility, a seed is set before each call of `random.sample()`.
+In order to preserve the reproducibility, a seed is set before each call of `random.sample()`.
 
 The distribution has 3 different bunch types:
 
