@@ -3,5 +3,5 @@ COPY . .
 RUN apt-get update && apt-get install -y python3.7 python3-pip && \
     python3.7 -m pip install --upgrade pip && \
     python3.7 -m pip install -r requirements.txt && \
-    python3.7 distributor.py clusters.tsv i_dont_exist A B C D && rm -rf annotators  # test
-CMD python3.7 distributor.py clusters.tsv empty_corpus carmen eugenia isabel victoria
+    python3.7 distributor.py clusters/labels_sup_umap_emb_8.tsv i_dont_exist A B C D && rm -rf annotators  # test
+CMD python3.7 distributor.py clusters/labels_sup_umap_emb_8.tsv empty_corpus carmen eugenia isabel victoria
